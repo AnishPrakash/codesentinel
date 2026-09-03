@@ -179,25 +179,96 @@ def _npm_downloads(client, batch: list[str]) -> dict[str, int]:
     return out
 
 
+# npm's search endpoint ranks results for a QUERY. Called with no query text it
+# returns an arbitrary slice of the registry - which is how a rebuild once
+# produced 2,417 names, 59 of them cbd/casino/keto spam. Given real query terms
+# and popularity weighting it returns what you would expect: react, axios, jest,
+# webpack. So the terms are the seed, and download counts are still the filter.
+#
+# The list is deliberately broad and boring: ecosystem names, layer names, and
+# job-to-be-done words. It does not need to be exhaustive, because anything it
+# surfaces still has to clear MIN_DOWNLOADS_PER_MONTH, and anything popular is
+# reachable from several of these terms at once.
+NPM_QUERY_TERMS = (
+    "react vue angular svelte next nuxt remix astro ember backbone jquery "
+    "node express koa fastify nest hapi restify socket websocket graphql rest "
+    "webpack rollup vite esbuild parcel babel swc typescript tsc eslint prettier "
+    "jest mocha vitest cypress playwright puppeteer testing mock chai sinon "
+    "lodash ramda underscore immutable rxjs redux zustand mobx recoil "
+    "axios fetch http client request superagent got undici "
+    "css sass less postcss tailwind styled emotion bootstrap material chakra "
+    "date time moment dayjs luxon timezone "
+    "logger logging winston pino debug chalk colors "
+    "cli commander yargs inquirer prompt ora spinner "
+    "fs path glob rimraf mkdirp chokidar watch "
+    "json yaml toml xml csv parser serializer schema validation zod joi ajv "
+    "crypto hash uuid jwt bcrypt auth passport oauth session cookie "
+    "database orm sql postgres mysql mongodb redis sqlite prisma sequelize knex "
+    "aws azure google cloud sdk s3 lambda docker kubernetes "
+    "image video canvas svg pdf chart d3 three animation "
+    "i18n intl translation markdown template handlebars ejs "
+    "queue worker cache stream buffer async promise event emitter "
+    "types utils helpers polyfill shim compat browser dom react-native electron "
+    "config env dotenv bundler compiler linter formatter monorepo package"
+).split()
+
+# Every sentinel is also a query term. Not circular - the sentinels are the
+# packages the gate refuses to write a manifest without, so the search has to
+# be asked for them explicitly rather than hoping a neighbouring term surfaces
+# them. dotenv was missing from a 7,127-candidate pool for exactly that reason.
+NPM_QUERY_TERMS = tuple(dict.fromkeys(NPM_QUERY_TERMS + sorted(NPM_SENTINELS)))
+
+
+def _npm_search(client, term: str, offset: int) -> list[str] | None:
+    """One page of popularity-ranked results, or None if the request failed.
+
+    npm rate-limits, and a rate-limited page used to be skipped in silence. The
+    result was a manifest missing express, lodash, jest and webpack while
+    looking completely normal - the same silent degradation as the sludge run,
+    only subtractive. So a failure is retried, and then reported.
+    """
+    import time
+
+    for attempt in range(3):
+        r = client.get("https://registry.npmjs.org/-/v1/search",
+                       params={"text": term, "size": 250, "from": offset,
+                               "popularity": 1.0, "quality": 0.0,
+                               "maintenance": 0.0})
+        if r.status_code == 200:
+            return [o["package"]["name"].lower() for o in r.json().get("objects", [])]
+        time.sleep(2 ** attempt)
+    return None
+
+
 def npm(n: int, merge: bool) -> None:
+    import time
+
     import httpx
 
     candidates: set[str] = set()
+    failed: list[str] = []
     with httpx.Client(timeout=60, follow_redirects=True) as c:
-        for offset in range(0, n * 3, 250):     # over-fetch; most get filtered out
-            r = c.get("https://registry.npmjs.org/-/v1/search",
-                      params={"text": "boost-exact:false", "size": 250,
-                              "from": offset, "popularity": 1.0,
-                              "quality": 0.0, "maintenance": 0.0})
-            if r.status_code != 200:
-                print(f"  npm search stopped at offset {offset} (HTTP {r.status_code})")
-                break
-            objs = r.json().get("objects", [])
-            if not objs:
-                break
-            candidates |= {o["package"]["name"].lower() for o in objs}
-            if len(candidates) >= n * 3:
-                break
+        for i, term in enumerate(NPM_QUERY_TERMS):
+            page = _npm_search(c, term, 0)
+            if page is None:
+                failed.append(term)
+                continue
+            candidates |= set(page)
+            if len(page) == 250:                       # a full page: ask for more
+                more = _npm_search(c, term, 250)
+                if more:
+                    candidates |= set(more)
+            time.sleep(0.2)                            # be a good citizen
+            if (i + 1) % 20 == 0:
+                print(f"    {i + 1}/{len(NPM_QUERY_TERMS)} terms, "
+                      f"{len(candidates)} candidates")
+
+        if len(failed) > len(NPM_QUERY_TERMS) // 10:
+            sys.exit(f"npm search failed for {len(failed)} terms "
+                     f"({failed[:5]}...). Rate-limited or offline - the "
+                     "committed manifest is untouched.")
+        if failed:
+            print(f"  npm: {len(failed)} term(s) failed after retries: {failed}")
 
         print(f"  npm: {len(candidates)} candidates, checking download counts")
         ordered = sorted(candidates)

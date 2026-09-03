@@ -142,3 +142,23 @@ def test_an_html_body_with_a_200_is_also_caught() -> None:
     finally:
         httpx.get = real_get
     assert "probably moved" in str(err.value)
+
+
+def test_every_sentinel_is_also_a_query_term() -> None:
+    """The gate refuses to write without these, so the search must ask for them.
+
+    A 7,127-candidate pool built from 33 terms contained 13 of 14 sentinels.
+    The one it missed, dotenv, was simply never queried - no term in the list
+    surfaced it. Hoping a neighbouring term happens to reach a package the gate
+    treats as mandatory is not a plan.
+    """
+    builder = _load_builder()
+    missing = builder.NPM_SENTINELS - set(builder.NPM_QUERY_TERMS)
+    assert not missing, f"sentinels never queried: {sorted(missing)}"
+
+
+def test_query_terms_are_not_empty_strings() -> None:
+    """An empty query is what returned registry sludge in the first place."""
+    builder = _load_builder()
+    assert all(t.strip() for t in builder.NPM_QUERY_TERMS)
+    assert len(builder.NPM_QUERY_TERMS) > 50
