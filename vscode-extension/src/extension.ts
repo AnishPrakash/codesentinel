@@ -21,7 +21,19 @@ let sidebar: SidebarProvider;
 let status: vscode.StatusBarItem;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  logger.info('CodeSentinel activating');
+  // Which build is actually running, and from where.
+  //
+  // An installed .vsix takes precedence over the Extension Development Host, so
+  // a stale install silently shadows the working tree and every rebundle looks
+  // like it did nothing. The version alone does not disambiguate them - the
+  // packaged build and the source it was packaged from share it - so the mode
+  // and the path are the part that answers the question.
+  const mode =
+    context.extensionMode === vscode.ExtensionMode.Development ? 'development host' : 'installed';
+  logger.info(
+    `CodeSentinel ${context.extension.packageJSON.version} activating ` +
+      `(${mode}, ${context.extensionPath})`
+  );
 
   collection = vscode.languages.createDiagnosticCollection(COLLECTION_NAME);
   sidebar = new SidebarProvider();
