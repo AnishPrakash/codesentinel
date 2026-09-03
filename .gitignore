@@ -18,5 +18,5 @@ vscode-extension/node_modules/
 vscode-extension/out/
 vscode-extension/*.vsix
 
-# transfer artefact
-codesentinel-src.tar.gz
+# transfer artefacts
+*.tar.gz

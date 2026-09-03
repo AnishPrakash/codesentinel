@@ -32,6 +32,14 @@ HINTS: dict[str, list[str]] = {
               "When are the ../ segments actually collapsed?"],
     "CS009": ["Which sites can now talk to your API?",
               "What does the browser attach to those requests?"],
+    "CS014": ["What does the library do with the class name it finds in the data?",
+              "What can JSON describe that this format cannot - or the other way round?"],
+    "CS015": ["TLS proves two things. Which one did you just switch off?",
+              "Who has to be standing where, to use that?"],
+    "CS016": ["Which machines does this traffic physically pass through?",
+              "What can they read once they have the packets?"],
+    "CS017": ["Where do log lines end up, besides that file?",
+              "Who reads logs who does not read the database?"],
 }
 
 

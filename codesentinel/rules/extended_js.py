@@ -8,7 +8,7 @@ from tree_sitter import Node
 
 from ..models import Language, Severity, Tier
 from ..parser import ParsedSource, enclosing_function, walk
-from .base import Rule
+from .base import Rule, looks_like_request_target
 
 JS = frozenset({Language.JAVASCRIPT})
 
@@ -180,4 +180,116 @@ JS_EXTENDED: list[Rule] = [
     Rule("CS013", "Check-then-use race", Severity.LOW,
          "CWE-367", "A04:2021 - Insecure Design", JS, match_toctou_js,
          tier=Tier.ADVISORY),
+]
+
+
+# =====================================================================
+#  CS014-CS017 for JavaScript.
+# =====================================================================
+
+SECRET_IN_LOG_JS = re.compile(
+    r"(?i)\b\w*(pass(word|wd)?|secret|token|api[_-]?key|access[_-]?key|"
+    r"private[_-]?key|credential|passphrase|sessionId)\w*\b")
+
+
+# ------------------------------------------- CS014 unsafe deserialization (JS)
+
+def match_deserialization_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type != "call_expression":
+            continue
+        text = ps.text(node)
+        if re.search(r"(?i)\b(node-serialize|serialize)\.unserialize\s*\(", text):
+            yield node, ("node-serialize's unserialize() evaluates function bodies "
+                         "embedded in the payload, so the data becomes code")
+        elif re.search(r"(?i)\bunserialize\s*\(", text) and "JSON" not in text:
+            yield node, ("unserialize() reconstructs objects described by the input, "
+                         "including their functions")
+        elif re.search(r"(?i)\bfunc2string|\bvm\.runInThisContext\s*\(", text):
+            yield node, "the input is compiled and run in this process's context"
+        elif re.search(r"(?i)\bjsyaml?\.load\s*\(|\byaml\.load\s*\(", text) and \
+                not re.search(r"(?i)(safeLoad|JSON_SCHEMA|CORE_SCHEMA|schema\s*:)", text):
+            yield node, ("YAML is parsed with the default schema, which can construct "
+                         "types the document names")
+
+
+# --------------------------------- CS015 certificate validation disabled (JS)
+
+def match_tls_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        text = ps.text(node)
+        if node.type == "pair" and re.search(
+                r"rejectUnauthorized\s*:\s*false", text):
+            yield node, ("rejectUnauthorized: false accepts any certificate, so the "
+                         "connection is encrypted to whoever answers, not to whoever "
+                         "you meant")
+        elif node.type in ("assignment_expression", "expression_statement") and \
+                re.search(r"NODE_TLS_REJECT_UNAUTHORIZED\s*\]?\s*=\s*[\"']?0", text):
+            yield node, ("NODE_TLS_REJECT_UNAUTHORIZED=0 disables certificate checking "
+                         "for every TLS connection this process makes")
+        elif node.type == "pair" and re.search(
+                r"(?i)strictSSL\s*:\s*false|checkServerIdentity\s*:\s*\(\s*\)\s*=>", text):
+            yield node, "certificate or hostname checking is switched off for this client"
+
+
+# ------------------------------------------ CS016 cleartext transmission (JS)
+
+CLEARTEXT_JS = re.compile(
+    r"""^["'`]http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0)[^"'`\s]+["'`]$""")
+SCHEMA_URL_JS = re.compile(r"(?i)(xmlns|w3\.org|schema|namespace|doctype|dtd|"
+                           r"purl\.org)")
+def match_cleartext_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type not in ("string", "template_string"):
+            continue
+        text = ps.text(node)
+        if not CLEARTEXT_JS.search(text) or SCHEMA_URL_JS.search(text):
+            continue
+        parent = node.parent
+        context = ps.text(parent) if parent is not None else ""
+        context = context.replace(text, " ")
+        if not looks_like_request_target(context, context):
+            continue
+        yield node, ("a request target uses http://, so the traffic and anything in it - "
+                     "tokens included - travels unencrypted")
+
+
+# ---------------------------------------- CS017 sensitive data in logs (JS)
+
+LOG_CALL_JS = re.compile(
+    r"(?i)\b(console\.(log|info|debug|warn|error)|"
+    r"(logger|log|winston|pino)\.(info|debug|warn|error|trace))\s*\(")
+
+
+def match_log_leak_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type != "call_expression":
+            continue
+        text = ps.text(node)
+        if not LOG_CALL_JS.match(text.strip()):
+            continue
+        args = node.child_by_field_name("arguments")
+        # Identifiers only - a message mentioning "password" is not a leak.
+        names = [ps.text(n) for n in (walk(args) if args is not None else [])
+                 if n.type in ("identifier", "member_expression")]
+        if not any(SECRET_IN_LOG_JS.search(n) for n in names):
+            continue
+        arg_text = ps.text(args) if args is not None else ""
+        if re.search(r"(?i)(redact|mask|\*{3,}|sha256|hashed)", arg_text):
+            continue
+        yield node, ("a credential-named value is written to a log; log files are read "
+                     "by more people and shipped to more places than the code is")
+
+
+JS_EXTENDED2: list[Rule] = [
+    Rule("CS014", "Unsafe deserialization", Severity.CRITICAL,
+         "CWE-502", "A08:2021 - Software and Data Integrity Failures",
+         JS, match_deserialization_js),
+    Rule("CS015", "Certificate validation disabled", Severity.HIGH,
+         "CWE-295", "A02:2021 - Cryptographic Failures", JS, match_tls_js),
+    Rule("CS016", "Cleartext transmission", Severity.MEDIUM,
+         "CWE-319", "A02:2021 - Cryptographic Failures", JS, match_cleartext_js),
+    Rule("CS017", "Sensitive data written to logs", Severity.MEDIUM,
+         "CWE-532", "A09:2021 - Security Logging and Monitoring Failures",
+         JS, match_log_leak_js, redact=True),
 ]

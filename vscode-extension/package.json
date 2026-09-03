@@ -12,14 +12,25 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Linters", "Programming Languages", "Education"],
-  "keywords": ["security", "cwe", "owasp", "static-analysis", "ai-generated-code"],
+  "categories": [
+    "Linters",
+    "Programming Languages",
+    "Education"
+  ],
+  "keywords": [
+    "security",
+    "cwe",
+    "owasp",
+    "static-analysis",
+    "ai-generated-code"
+  ],
   "activationEvents": [
     "onLanguage:python",
     "onLanguage:javascript",
     "onLanguage:javascriptreact",
     "onLanguage:typescript",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:java"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -54,7 +65,7 @@
       "editor/title": [
         {
           "command": "codesentinel.scanFile",
-          "when": "resourceLangId =~ /^(python|javascript|javascriptreact|typescript|typescriptreact)$/",
+          "when": "resourceLangId =~ /^(python|javascript|javascriptreact|typescript|typescriptreact|java)$/",
           "group": "navigation"
         }
       ]
@@ -100,19 +111,36 @@
           "type": "number",
           "default": 30000,
           "description": "How long to wait for a scan before giving up."
+        },
+        "codesentinel.minSeverity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low",
+            "info"
+          ],
+          "default": "low",
+          "description": "Lowest severity to show as a diagnostic. Advisories are controlled separately by codesentinel.showAdvisories."
         }
       }
     }
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
+    "vscode:prepublish": "npm run bundle",
     "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
-    "lint": "eslint src --ext ts"
+    "bundle": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "typecheck": "tsc -p ./ --noEmit",
+    "verify-bridge": "node scripts/verify-bridge.js",
+    "package": "npx @vscode/vsce package"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/vscode": "^1.85.0",
-    "typescript": "^5.4.5"
-  }
+    "typescript": "^5.4.5",
+    "esbuild": "^0.24.0"
+  },
+  "icon": "media/icon.png"
 }

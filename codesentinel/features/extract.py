@@ -42,6 +42,10 @@ FEATURE_NAMES: list[str] = [
 ]
 assert len(FEATURE_NAMES) == 52, len(FEATURE_NAMES)
 
+# Language is dummy-encoded with k-1 columns: Java is (0, 0). Adding a third
+# indicator would make the vector 53 long and break the contract with any model
+# trained on 52 - and a k-1 encoding carries exactly the same information.
+
 # --------------------------------------------------------------- lexicons
 
 AWS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
@@ -66,13 +70,14 @@ OS_COMMAND = {"system", "popen", "spawn", "execsync", "exec", "spawnsync", "run"
 AUTH_MARKERS = re.compile(
     r"(?i)(login_required|requires_auth|require_auth|authenticate|authenticated|"
     r"jwt_required|permission_required|ensure_auth|is_authenticated|current_user|"
-    r"verify_token|auth_middleware|passport|requiresauth)"
+    r"verify_token|auth_middleware|passport|requiresauth|"
+    r"preauthorize|rolesallowed|secured|principal|securitycontext)"   # java/spring
 )
 ROUTE_MARKERS = re.compile(r"(?i)\b(route|get|post|put|patch|delete|app|router)\b")
 
 DB_CALL = re.compile(
-    r"(?i)\b(execute|executemany|raw|query|find|findone|aggregate|cursor|"
-    r"session\.execute|db\.query|collection\.)\b"
+    r"(?i)\b(execute|executemany|executequery|executeupdate|prepare|preparestatement|"
+    r"raw|query|find|findone|aggregate|cursor|session\.execute|db\.query|collection\.)\b"
 )
 SANITIZER = re.compile(
     r"(?i)\b(escape|sanitize|quote|parameterize|bindparam|validate|clean|"
@@ -122,26 +127,32 @@ class FeatureExtractor:
             t = n.type
             if t in ("string", "string_literal", "template_string", "concatenated_string"):
                 strings.append(n)
-            elif t == "call" or t == "call_expression":
+            elif t in ("call", "call_expression", "method_invocation",
+                       "object_creation_expression"):
                 calls.append(n)
             elif t in ("function_definition", "function_declaration",
-                       "function_expression", "arrow_function", "method_definition"):
+                       "function_expression", "arrow_function", "method_definition",
+                       "method_declaration", "constructor_declaration",
+                       "lambda_expression"):
                 funcs.append(n)
-            elif t in ("class_definition", "class_declaration"):
+            elif t in ("class_definition", "class_declaration",
+                       "interface_declaration", "enum_declaration"):
                 classes.append(n)
             elif t in ("import_statement", "import_from_statement",
-                       "lexical_declaration", "variable_declaration"):
+                       "import_declaration", "lexical_declaration",
+                       "variable_declaration"):
                 if t.startswith("import") or "require(" in ps.text(n):
                     imports.append(n)
-            elif t == "comment":
+            elif t in ("comment", "line_comment", "block_comment"):
                 comments.append(n)
-            elif t == "decorator":
+            elif t in ("decorator", "annotation", "marker_annotation"):
                 decorators.append(n)
-            elif t in ("try_statement",):
+            elif t in ("try_statement", "try_with_resources_statement"):
                 tries.append(n)
-            elif t == "type" or t == "type_annotation":
+            elif t in ("type", "type_annotation", "type_identifier"):
                 annotations.append(n)
-            elif t in ("assignment", "augmented_assignment", "variable_declarator"):
+            elif t in ("assignment", "augmented_assignment", "variable_declarator",
+                       "assignment_expression", "field_declaration"):
                 assigns.append(n)
 
         string_texts = [ps.text(s) for s in strings]
@@ -270,7 +281,7 @@ class FeatureExtractor:
         f["avg_line_length"] = float(sum(lengths) / len(lengths))
         f["max_line_length"] = float(max(lengths))
         f["lang_is_python"] = float(is_py)
-        f["lang_is_javascript"] = float(not is_py)
+        f["lang_is_javascript"] = float(ps.language is Lang.JAVASCRIPT)
 
         return [f[name] for name in FEATURE_NAMES]
 
@@ -278,7 +289,10 @@ class FeatureExtractor:
 
     @staticmethod
     def _callee_name(ps: ParsedSource, call: Node) -> str:
-        fn = call.child_by_field_name("function")
+        # java: method_invocation has `name`; object_creation_expression has `type`
+        fn = (call.child_by_field_name("function")
+              or call.child_by_field_name("name")
+              or call.child_by_field_name("type"))
         if fn is None:
             return ""
         text = ps.text(fn)
@@ -291,6 +305,10 @@ class FeatureExtractor:
 
     @staticmethod
     def _route_nodes(ps: ParsedSource, decorators, calls, is_py: bool) -> list[Node]:
+        if ps.language is Lang.JAVA:
+            return [d for d in decorators
+                    if re.search(r"(?i)@\s*(Get|Post|Put|Patch|Delete|Request)Mapping|"
+                                 r"@\s*(Path|GET|POST|PUT|DELETE)\b", ps.text(d))]
         if is_py:
             return [d for d in decorators
                     if re.search(r"(?i)@\w*(app|router|bp|blueprint)\.\w+", ps.text(d))]
@@ -346,6 +364,8 @@ class FeatureExtractor:
     @staticmethod
     def _is_stdlib(pkg: str, is_py: bool) -> bool:
         import sys
+        if pkg in ("java", "javax", "jakarta", "jdk", "sun"):
+            return True
         if is_py:
             return pkg in sys.stdlib_module_names
         return pkg in {"fs", "path", "http", "https", "crypto", "os", "util",

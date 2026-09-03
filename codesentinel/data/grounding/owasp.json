@@ -33,5 +33,15 @@
     "name": "Identification and Authentication Failures",
     "summary": "Confirmation of the user's identity, authentication, and session management is critical to protect against authentication-related attacks. Applications may be vulnerable where they use plain text, encrypted, or weakly hashed passwords, or expose credentials.",
     "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+  },
+  "A08:2021": {
+    "name": "Software and Data Integrity Failures",
+    "summary": "Software and data integrity failures relate to code and infrastructure that does not protect against integrity violations. An insecure deserialization flaw occurs when an application deserializes hostile or tampered objects supplied by an attacker.",
+    "url": "https://owasp.org/Top10/A08_2021-Software_and_Data_Integrity_Failures/"
+  },
+  "A09:2021": {
+    "name": "Security Logging and Monitoring Failures",
+    "summary": "Logging and monitoring failures, coupled with missing or ineffective integration with incident response, allow attackers to further attack systems, maintain persistence, and extract or destroy data. Logs of applications and APIs are not monitored for suspicious activity, and logs may themselves store sensitive data.",
+    "url": "https://owasp.org/Top10/A09_2021-Security_Logging_and_Monitoring_Failures/"
   }
 }

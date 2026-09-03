@@ -51,6 +51,22 @@ QUESTIONS: dict[str, str] = {
         "Explain what a website you have never heard of can do once this setting is at "
         "its most permissive value."
     ),
+    "CS014": (
+        "Explain what happens between the bytes arriving and your object existing, "
+        "and why that step is different from parsing JSON."
+    ),
+    "CS015": (
+        "The connection is still encrypted with this setting. Explain what you have "
+        "lost anyway, and who can take advantage of it."
+    ),
+    "CS016": (
+        "Name who can read this traffic between your process and the server, and say "
+        "what they see."
+    ),
+    "CS017": (
+        "The value is only in a log file, not in the database. Explain why that is "
+        "still a disclosure, and who ends up able to read it."
+    ),
     # Advisories carry no question. They are not confident enough to gate on,
     # and gating on a guess would teach the wrong lesson.
 }
@@ -96,6 +112,29 @@ RUBRIC: dict[str, list[list[str]]] = {
     "CS009": [
         ["any site", "any origin", "any website", "anyone", "every origin", "attacker site"],
         ["credential", "cookie", "logged in", "authenticated", "as the user", "session"],
+    ],
+    "CS014": [
+        ["construct", "instantiate", "creates object", "rebuild", "runs", "executes",
+         "calls", "constructor", "class"],
+        ["json", "data only", "plain object", "cannot name", "no code", "just data",
+         "no class"],
+    ],
+    "CS015": [
+        ["identity", "who", "proof", "authenticity", "which server", "hostname",
+         "not verified", "any certificate", "impersonat"],
+        ["middle", "mitm", "intercept", "between", "proxy", "wifi", "router",
+         "on the path", "eavesdrop"],
+    ],
+    "CS016": [
+        ["anyone", "middle", "network", "wifi", "isp", "proxy", "router", "sniff",
+         "on the path", "provider"],
+        ["plain", "cleartext", "unencrypted", "readable", "everything", "token",
+         "password", "credential", "cookie", "body"],
+    ],
+    "CS017": [
+        ["log", "file", "aggregat", "shipped", "stored", "kept", "copy"],
+        ["support", "anyone with access", "more people", "team", "admin", "operator",
+         "third party", "vendor", "dashboard", "whoever can read"],
     ],
 }
 

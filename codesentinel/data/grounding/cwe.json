@@ -63,5 +63,25 @@
     "name": "Time-of-check Time-of-use (TOCTOU) Race Condition",
     "summary": "The product checks the state of a resource before using that resource, but the resource's state can change between the check and the use in a way that invalidates the results of the check.",
     "url": "https://cwe.mitre.org/data/definitions/367.html"
+  },
+  "CWE-502": {
+    "name": "Deserialization of Untrusted Data",
+    "summary": "The product deserializes untrusted data without sufficiently ensuring that the resulting data will be valid.",
+    "url": "https://cwe.mitre.org/data/definitions/502.html"
+  },
+  "CWE-295": {
+    "name": "Improper Certificate Validation",
+    "summary": "The product does not validate, or incorrectly validates, a certificate.",
+    "url": "https://cwe.mitre.org/data/definitions/295.html"
+  },
+  "CWE-319": {
+    "name": "Cleartext Transmission of Sensitive Information",
+    "summary": "The product transmits sensitive or security-critical data in cleartext in a communication channel that can be sniffed by unauthorized actors.",
+    "url": "https://cwe.mitre.org/data/definitions/319.html"
+  },
+  "CWE-532": {
+    "name": "Insertion of Sensitive Information into Log File",
+    "summary": "The product writes sensitive information to a log file.",
+    "url": "https://cwe.mitre.org/data/definitions/532.html"
   }
 }

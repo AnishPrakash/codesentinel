@@ -35,7 +35,8 @@ def bench(path: Path, n: int = 200) -> None:
 if __name__ == "__main__":
     print(f"triage model: {'loaded' if get_model().ready else 'not installed'}\n")
     demo = Path(__file__).resolve().parent.parent / "demo"
-    for p in sorted(demo.glob("*.py")) + sorted(demo.glob("*.js")):
+    for p in (sorted(demo.glob("*.py")) + sorted(demo.glob("*.js"))
+              + sorted(demo.glob("*.java"))):
         bench(p)
     big_src = (demo / "invoices.py").read_text(encoding="utf-8")
     big = Path("/tmp/cs_big.py")

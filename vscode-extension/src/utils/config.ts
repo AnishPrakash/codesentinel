@@ -7,7 +7,17 @@ export interface Settings {
   showFix: boolean;
   gutterIcons: boolean;
   timeoutMs: number;
+  minSeverity: number;
 }
+
+/** Severity names as the CLI numbers them (Severity is an IntEnum in Python). */
+export const SEVERITY_RANK: Record<string, number> = {
+  info: 0,
+  low: 1,
+  medium: 2,
+  high: 3,
+  critical: 4,
+};
 
 export const SUPPORTED_LANGUAGES = [
   'python',
@@ -15,6 +25,7 @@ export const SUPPORTED_LANGUAGES = [
   'javascriptreact',
   'typescript',
   'typescriptreact',
+  'java',
 ];
 
 export function getSettings(): Settings {
@@ -26,6 +37,7 @@ export function getSettings(): Settings {
     showFix: c.get<boolean>('showFix', false),
     gutterIcons: c.get<boolean>('gutterIcons', true),
     timeoutMs: c.get<number>('timeoutMs', 30000),
+    minSeverity: SEVERITY_RANK[c.get<string>('minSeverity', 'low')] ?? 1,
   };
 }
 

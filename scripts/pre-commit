@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+#
+# CodeSentinel pre-commit hook.
+#
+# Scans only the files you are about to commit, not the whole tree - a hook that
+# takes ten seconds is a hook people disable. Blocks the commit on deterministic
+# findings at or above CS_FAIL_ON (default: critical). Advisories never block.
+#
+# Install:   cs install-hook          (or copy this file to .git/hooks/pre-commit)
+# Bypass:    git commit --no-verify   (deliberate, visible, and in the reflog)
+#
+set -uo pipefail
+
+FAIL_ON="${CS_FAIL_ON:-critical}"
+PYTHON="${CS_PYTHON:-python}"
+
+# Staged files only, additions and modifications, in the languages we parse.
+FILES=$(git diff --cached --name-only --diff-filter=ACM \
+        | grep -E '\.(py|js|jsx|mjs|cjs|ts|tsx|java)$' || true)
+
+if [ -z "$FILES" ]; then
+  exit 0
+fi
+
+# Scan the staged content, not the working tree: what is committed is what is
+# checked. Anything you have edited but not staged must not affect the result.
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+while IFS= read -r f; do
+  mkdir -p "$TMP/$(dirname "$f")"
+  git show ":$f" > "$TMP/$f" 2>/dev/null || true
+done <<< "$FILES"
+
+echo "CodeSentinel: scanning $(echo "$FILES" | wc -l | tr -d ' ') staged file(s)..."
+
+"$PYTHON" -m codesentinel scan "$TMP" --fail-on "$FAIL_ON" --no-ledger
+STATUS=$?
+
+if [ $STATUS -eq 1 ]; then
+  cat <<'MSG'
+
+CodeSentinel blocked this commit.
+
+  Every finding above is a structural match, not a guess - the pattern is
+  present in the code you staged.
+
+  To understand one:      cs explain CS002
+  To unlock its fix:      cs learn CS002
+  To commit anyway:       git commit --no-verify
+  To change the bar:      CS_FAIL_ON=high git commit
+
+MSG
+  exit 1
+fi
+
+if [ $STATUS -gt 1 ]; then
+  echo "CodeSentinel could not run (exit $STATUS). Not blocking the commit."
+  echo "Check:  $PYTHON -m codesentinel version"
+  exit 0
+fi
+
+exit 0

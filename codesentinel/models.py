@@ -22,6 +22,7 @@ class Severity(enum.IntEnum):
 class Language(str, enum.Enum):
     PYTHON = "python"
     JAVASCRIPT = "javascript"
+    JAVA = "java"
 
 
 class Tier(str, enum.Enum):

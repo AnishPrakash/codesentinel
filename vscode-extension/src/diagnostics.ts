@@ -74,9 +74,12 @@ export function toDiagnostics(
   findings: Finding[],
   document?: vscode.TextDocument
 ): vscode.Diagnostic[] {
-  const { showAdvisories, showFix } = getSettings();
+  const { showAdvisories, showFix, minSeverity } = getSettings();
   return findings
     .filter((f) => showAdvisories || f.tier !== 'advisory')
+    // minSeverity applies to findings only. An advisory is a different kind of
+    // claim, not a quieter one, so showAdvisories is what controls those.
+    .filter((f) => f.tier === 'advisory' || f.severity >= minSeverity)
     .map((f) => {
       const d = new vscode.Diagnostic(rangeFor(f, document), messageFor(f, showFix), severityFor(f));
       d.source = 'CodeSentinel';

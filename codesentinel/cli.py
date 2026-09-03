@@ -38,7 +38,7 @@ console = Console()
 
 SKIP_DIRS = {".git", ".venv", "venv", "node_modules", "__pycache__",
              "dist", "build", ".next", ".mypy_cache", ".pytest_cache"}
-EXTENSIONS = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx"}
+EXTENSIONS = {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".java"}
 
 SEV_STYLE = {
     Severity.CRITICAL: "bold red",
@@ -49,9 +49,19 @@ SEV_STYLE = {
 }
 THRESHOLDS = {"critical": Severity.CRITICAL, "high": Severity.HIGH,
               "medium": Severity.MEDIUM, "low": Severity.LOW}
+LANG_ABBREV = {Language.PYTHON: "py", Language.JAVASCRIPT: "js", Language.JAVA: "java"}
 
 
 # ------------------------------------------------------------------ helpers
+
+def _syntax_lang(language: Language) -> str:
+    """Pygments lexer name for a language, used for fix-snippet highlighting."""
+    return {
+        Language.PYTHON: "python",
+        Language.JAVASCRIPT: "javascript",
+        Language.JAVA: "java",
+    }[language]
+
 
 def _iter_files(target: Path, recursive: bool) -> list[Path]:
     if target.is_file():
@@ -123,7 +133,7 @@ def _render_file(result: ScanResult, show_fix: bool) -> None:
             console.print(f"           [yellow]Before the fix:[/yellow] {f.question}")
             console.print(f"           [dim]run:  cs learn {f.rule_id}[/dim]")
         elif f.fix:
-            lang = "python" if result.language is Language.PYTHON else "javascript"
+            lang = _syntax_lang(result.language)
             console.print(Panel(
                 Syntax(f.fix, lang, theme="ansi_dark", word_wrap=True),
                 border_style="green", box=box.ROUNDED, padding=(0, 1)))
@@ -181,7 +191,7 @@ def _markdown(results: list[ScanResult], n_files: int, elapsed_ms: float) -> str
             continue
         out.append(f"## `{r.path}`")
         for f in r.findings:
-            lang = "python" if r.language is Language.PYTHON else "javascript"
+            lang = _syntax_lang(r.language)
             tier = "" if f.tier is Tier.DETERMINISTIC else " *(advisory)*"
             out += [
                 f"### {f.severity.label}: {f.title} (line {f.line}){tier}",
@@ -209,15 +219,21 @@ def scan(
     quiet: bool = typer.Option(False, "--quiet", "-q", help="Summary only."),
     no_ledger: bool = typer.Option(False, "--no-ledger",
                                    help="Do not read or write the local ledger."),
+    nist: bool = typer.Option(False, "--nist",
+                              help="Also cite the NIST SP 800-53 control each class "
+                                   "relates to."),
 ) -> None:
     """Scan a file or directory for security flaws."""
+    from .explain import templates
     from .triage.model import get_model
+
+    templates.set_nist(nist)
 
     t0 = time.perf_counter()
     files = _iter_files(target, recursive)
     if not files:
         console.print("[yellow]No supported files found.[/yellow] "
-                      "(.py .js .jsx .mjs .cjs .ts .tsx)")
+                      "(.py .js .jsx .mjs .cjs .ts .tsx .java)")
         raise typer.Exit(0)
 
     known = set() if no_ledger else ledger.mastered_rules()
@@ -338,20 +354,62 @@ def learn(rule_id: str = typer.Argument(..., help="CS001..CS009")) -> None:
 
 
 @app.command()
-def rules() -> None:
-    """List what CodeSentinel checks."""
+def rules(
+    lang: str = typer.Option(
+        "", "--lang", "-l",
+        help="Show coverage for one language: python | javascript | java"),
+    nist: bool = typer.Option(False, "--nist", help="Also show the NIST SP 800-53 control."),
+) -> None:
+    """List what CodeSentinel checks.
+
+    Coverage is not identical across languages, so --lang prints the real subset
+    rather than letting the full table imply parity.
+    """
+    from .explain.templates import nist_data
+    from .rules.engine import rules_for
+
+    language = None
+    if lang:
+        try:
+            language = Language(lang.lower())
+        except ValueError:
+            console.print(f"[red]Unknown language {lang!r}.[/red]  "
+                          "Try: python, javascript, java")
+            raise typer.Exit(1) from None
+
+    supported = set(rules_for(language)) if language else None
+
     table = Table(box=box.SIMPLE_HEAD)
     table.add_column("ID", style="bold")
     table.add_column("Class")
     table.add_column("CWE", style="dim")
     table.add_column("OWASP", style="dim")
+    if nist:
+        table.add_column("NIST", style="dim")
     table.add_column("Tier")
+    if supported is None:
+        table.add_column("Languages", style="dim")
+
     for rid, name, cwe, owasp, tier in COVERED:
+        if supported is not None and rid not in supported:
+            continue
         mark = ("[green]finding[/green]" if tier == "deterministic"
                 else "[yellow]advisory[/yellow]")
-        table.add_row(rid, name, cwe, owasp, mark)
+        row = [rid, name, cwe, owasp]
+        if nist:
+            row.append(nist_data().get(rid, {}).get("control", "-"))
+        row.append(mark)
+        if supported is None:
+            langs = [LANG_ABBREV[ln] for ln in Language if rid in set(rules_for(ln))]
+            row.append(" ".join(langs) or "-")
+        table.add_row(*row)
+
     console.print(table)
-    console.print(f"[dim]{coverage_statement()}[/dim]")
+    if supported is None:
+        console.print("[dim]py = Python, js = JavaScript/TypeScript, java = Java. "
+                      "Java coverage is a subset - run  cs rules --lang java  "
+                      "for exactly what applies.[/dim]")
+    console.print(f"[dim]{coverage_statement(language)}[/dim]")
 
 
 @app.command()
@@ -413,6 +471,51 @@ def history(
                       str(r["finding_count"]), worst)
     console.print(table)
     console.print(f"[dim]Ledger: {get_settings().ledger_path}[/dim]")
+
+
+@app.command("install-hook")
+def install_hook(
+    repo: Path = typer.Option(Path("."), "--repo", help="Repository to install into."),
+    force: bool = typer.Option(False, "--force", help="Overwrite an existing hook."),
+    fail_on: str = typer.Option("critical", "--fail-on",
+                                help="Severity that blocks a commit."),
+) -> None:
+    """Install a git pre-commit hook that scans staged files.
+
+    Scans only what is staged, so it stays fast, and blocks on deterministic
+    findings only - a commit must never be blocked because we could not see a
+    rate limiter that lives in the ingress config.
+    """
+    import shutil
+    import stat
+
+    hooks = repo.resolve() / ".git" / "hooks"
+    if not hooks.parent.exists():
+        console.print(f"[red]{repo.resolve()} is not a git repository.[/red]")
+        raise typer.Exit(1)
+    hooks.mkdir(parents=True, exist_ok=True)
+
+    dest = hooks / "pre-commit"
+    if dest.exists() and not force:
+        console.print(f"[yellow]{dest} already exists.[/yellow]  "
+                      "Re-run with --force to replace it.")
+        raise typer.Exit(1)
+
+    source = Path(__file__).resolve().parent.parent / "scripts" / "pre-commit"
+    if not source.exists():
+        console.print("[red]Hook template not found.[/red] "
+                      "Install from a source checkout, not a wheel.")
+        raise typer.Exit(1)
+
+    shutil.copyfile(source, dest)
+    dest.chmod(dest.stat().st_mode | stat.S_IEXEC | stat.S_IXGRP | stat.S_IXOTH)
+
+    console.print(f"[green]Installed[/green] {dest}")
+    console.print(f"[dim]Blocks on: {fail_on} and above (set CS_FAIL_ON to change). "
+                  "Bypass once with: git commit --no-verify[/dim]")
+    if fail_on != "critical":
+        console.print(f"[dim]Tip: export CS_FAIL_ON={fail_on} in your shell profile "
+                      "to make that the default.[/dim]")
 
 
 @app.command("install-model")

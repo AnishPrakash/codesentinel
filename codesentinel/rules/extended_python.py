@@ -8,7 +8,7 @@ from tree_sitter import Node
 
 from ..models import Language, Severity, Tier
 from ..parser import ParsedSource, enclosing_function, walk
-from .base import Rule
+from .base import Rule, looks_like_request_target
 from .python_rules import _callee
 
 PY = frozenset({Language.PYTHON})
@@ -217,5 +217,172 @@ PYTHON_EXTENDED: list[Rule] = [
          tier=Tier.ADVISORY),
     Rule("CS013", "Check-then-use race", Severity.LOW,
          "CWE-367", "A04:2021 - Insecure Design", PY, match_toctou_py,
+         tier=Tier.ADVISORY),
+]
+
+
+# =====================================================================
+#  CS014-CS017 - deterministic classes added in the second pass.
+#  These come from plan.md's pattern-feature table: unsafe deserialization,
+#  disabled certificate validation, cleartext transport, and secrets in logs.
+# =====================================================================
+
+# ------------------------------------------- CS014 unsafe deserialization
+
+def match_deserialization_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type != "call":
+            continue
+        callee = _callee(ps, node)
+        args = ps.text(node.child_by_field_name("arguments") or node)
+
+        if re.search(r"(?i)\b(pickle|cPickle|_pickle|dill|shelve)\.(loads?|Unpickler)\b",
+                     callee):
+            yield node, ("pickle reconstructs objects by running the constructors named in "
+                         "the data, so loading untrusted bytes runs untrusted code")
+        elif re.search(r"(?i)\bmarshal\.loads?\b", callee):
+            yield node, ("marshal deserialises Python bytecode objects and is documented "
+                         "as unsafe for untrusted data")
+        elif re.search(r"(?i)\byaml\.load\b", callee) and not re.search(
+                r"(?i)(SafeLoader|BaseLoader|CSafeLoader)", args):
+            yield node, ("yaml.load without SafeLoader lets the document name arbitrary "
+                         "Python objects to construct")
+        elif re.search(r"(?i)\bjsonpickle\.decode\b", callee):
+            yield node, "jsonpickle.decode reconstructs arbitrary Python types from JSON"
+
+
+# ------------------------------ CS015 certificate validation disabled (Python)
+
+def match_tls_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        text = ps.text(node)
+        if node.type == "call":
+            callee = _callee(ps, node)
+            args = ps.text(node.child_by_field_name("arguments") or node)
+            if re.search(r"(?i)\b(requests|httpx|session)\.(get|post|put|patch|delete|"
+                         r"head|request)\b", callee) or re.search(
+                             r"(?i)\b(Client|Session)\b", callee):
+                if re.search(r"verify\s*=\s*False", args):
+                    yield node, ("verify=False turns off certificate checking, so the "
+                                 "connection is encrypted to whoever answers, not to "
+                                 "whoever you meant")
+            elif re.search(r"(?i)_create_unverified_context", callee):
+                yield node, ("an unverified SSL context accepts any certificate, "
+                             "including one an attacker generated a second ago")
+        elif node.type in ("assignment", "expression_statement"):
+            if re.search(r"ssl\._create_default_https_context\s*=\s*"
+                         r"ssl\._create_unverified_context", text):
+                yield node, ("the default HTTPS context is replaced with an unverified "
+                             "one, disabling certificate checking process-wide")
+            elif re.search(r"(?i)CURLOPT_SSL_VERIFY(PEER|HOST)\s*,\s*(0|False)", text):
+                yield node, "libcurl certificate verification is switched off"
+
+
+# ------------------------------------- CS016 cleartext transmission (Python)
+
+# Anchored, and no internal whitespace: the whole literal has to BE a URL.
+# Prose that merely contains "http://" - documentation, an explanation, an error
+# message - is not a request target, and matching it made this rule fire on our
+# own explanation templates.
+CLEARTEXT_PY = re.compile(
+    r"""^["']http://(?!localhost|127\.0\.0\.1|0\.0\.0\.0|\{)[^"'\s]+["']$""")
+SCHEMA_URL_PY = re.compile(r"(?i)(xmlns|w3\.org|schema|namespace|doctype|dtd|"
+                           r"purl\.org|apache\.org/licenses)")
+def match_cleartext_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type != "string":
+            continue
+        text = ps.text(node)
+        if not CLEARTEXT_PY.search(text) or SCHEMA_URL_PY.search(text):
+            continue
+        parent = node.parent
+        context = ps.text(parent) if parent is not None else ""
+        # Strip the literal itself: a URL always contains "http", which would
+        # otherwise make the network-call guard match everything.
+        context = context.replace(text, " ")
+        if not looks_like_request_target(context, context):
+            continue
+        yield node, ("a request target uses http://, so the traffic and anything in it - "
+                     "credentials included - travels unencrypted")
+
+
+# ---------------------------------- CS017 sensitive data in logs (Python)
+
+LOG_CALL_PY = re.compile(
+    r"(?i)^(print|pprint|(log|logger|logging|_log)\.(info|debug|warning|warn|error|"
+    r"critical|exception))$")
+
+
+def _logged_identifiers(ps: ParsedSource, args: Node | None) -> list[str]:
+    """Names actually passed to the log call, ignoring string literals.
+
+    A message that merely mentions the word "password" is not a leak; a variable
+    called `password` being interpolated into it is. Matching the raw argument
+    text cannot tell those apart, and the difference is most of this rule's
+    false-positive rate.
+    """
+    if args is None:
+        return []
+    names: list[str] = []
+    for n in walk(args):
+        if n.type in ("identifier", "attribute"):
+            names.append(ps.text(n))
+        elif n.type == "interpolation":            # f-string {value}
+            names.extend(ps.text(c) for c in n.children if c.type != "{")
+    return names
+
+
+def match_log_leak_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    for node in walk(ps.root):
+        if node.type != "call":
+            continue
+        callee = _callee(ps, node).strip()
+        if not LOG_CALL_PY.match(callee.rsplit(".", 1)[-1]) and \
+                not LOG_CALL_PY.match(callee):
+            continue
+        args_node = node.child_by_field_name("arguments")
+        names = _logged_identifiers(ps, args_node)
+        if not any(SECRET_IN_LOG.search(n) for n in names):
+            continue
+        args = ps.text(args_node) if args_node is not None else ""
+        if re.search(r"(?i)(redact|mask|\*{3,}|sha256|hashed)", args):
+            continue
+        yield node, ("a credential-named value is written to a log; log files are read "
+                     "by more people and shipped to more places than the code is")
+
+
+SECRET_IN_LOG = re.compile(
+    r"(?i)\b\w*(pass(word|wd)?|secret|token|api[_-]?key|access[_-]?key|"
+    r"private[_-]?key|credential|passphrase|session[_-]?id)\w*\b")
+
+
+# ---------------- extra shapes folded into classes that already exist ----------
+
+def match_toctou_mktemp_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    """tempfile.mktemp() is the textbook check-then-use race: it returns a name
+    that does not exist yet, and anything can create it before you do."""
+    for node in walk(ps.root):
+        if node.type != "call":
+            continue
+        if re.search(r"(?i)\btempfile\.mktemp\b|(?<![\w.])mktemp\b", _callee(ps, node)):
+            yield node, ("tempfile.mktemp() returns a name, not a file - between the name "
+                         "being chosen and your code creating it, anything can take it")
+
+
+PYTHON_EXTENDED2: list[Rule] = [
+    Rule("CS014", "Unsafe deserialization", Severity.CRITICAL,
+         "CWE-502", "A08:2021 - Software and Data Integrity Failures",
+         PY, match_deserialization_py),
+    Rule("CS015", "Certificate validation disabled", Severity.HIGH,
+         "CWE-295", "A02:2021 - Cryptographic Failures", PY, match_tls_py),
+    Rule("CS016", "Cleartext transmission", Severity.MEDIUM,
+         "CWE-319", "A02:2021 - Cryptographic Failures", PY, match_cleartext_py),
+    Rule("CS017", "Sensitive data written to logs", Severity.MEDIUM,
+         "CWE-532", "A09:2021 - Security Logging and Monitoring Failures",
+         PY, match_log_leak_py, redact=True),
+
+    # tempfile.mktemp is a second shape of the same TOCTOU race CS013 covers.
+    Rule("CS013", "Check-then-use race", Severity.LOW,
+         "CWE-367", "A04:2021 - Insecure Design", PY, match_toctou_mktemp_py,
          tier=Tier.ADVISORY),
 ]

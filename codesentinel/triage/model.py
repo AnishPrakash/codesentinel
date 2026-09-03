@@ -14,8 +14,8 @@ log = logging.getLogger(__name__)
 
 # Output order must match the deterministic half of rules.engine.COVERED.
 # Advisory classes (CS010-CS013) are never modelled.
-CLASS_ORDER = ["CS001", "CS002", "CS003", "CS004", "CS005",
-               "CS006", "CS007", "CS008", "CS009"]
+CLASS_ORDER = ["CS001", "CS002", "CS003", "CS004", "CS005", "CS006", "CS007",
+               "CS008", "CS009", "CS014", "CS015", "CS016", "CS017"]
 
 
 class TriageModel:

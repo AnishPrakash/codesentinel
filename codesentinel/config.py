@@ -43,6 +43,9 @@ class Settings:
     # --- grounding ---
     cwe_path: Path = DATA_DIR / "grounding" / "cwe.json"
     owasp_path: Path = DATA_DIR / "grounding" / "owasp.json"
+    nist_path: Path = DATA_DIR / "grounding" / "nist.json"
+    # NIST control text is long and organisational; off unless asked for.
+    show_nist: bool = False
 
     @property
     def ledger_path(self) -> Path:

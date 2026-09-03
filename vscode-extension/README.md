@@ -29,11 +29,18 @@ that is for exactly one of them to decide.
    ```bash
    cd vscode-extension
    npm install
-   npm run compile
+   npm run typecheck     # tsc --noEmit, strict mode
+   npm run bundle        # esbuild -> out/extension.js, a single file
    ```
 
-   Then press <kbd>F5</kbd> in VS Code to launch an Extension Development Host,
-   or package it with `npx @vscode/vsce package` and install the `.vsix`.
+   Then press <kbd>F5</kbd> in VS Code to launch an Extension Development Host.
+
+   To install it properly instead:
+
+   ```bash
+   npm run package                                  # -> codesentinel-0.1.0.vsix
+   code --install-extension codesentinel-0.1.0.vsix
+   ```
 
 3. Point the extension at the right interpreter:
 
@@ -44,6 +51,12 @@ that is for exactly one of them to decide.
 
    On macOS/Linux: `~/miniconda3/envs/code_env/bin/python`.
 
+## Languages
+
+Python, JavaScript, TypeScript, JSX/TSX, and **Java**. Java coverage is a
+documented subset — run `cs rules --lang java` to see exactly which classes
+apply to it.
+
 ## What you get
 
 | | |
@@ -52,6 +65,7 @@ that is for exactly one of them to decide.
 | **Sidebar** | Findings and Advisories in two separate groups, grouped by file. Click to jump. |
 | **Status bar** | Finding count for the active file, or `clean`. |
 | **Scan on save** | On by default. Set `codesentinel.scanOnSave` to `false` to disable. |
+| **Severity filter** | `codesentinel.minSeverity` hides findings below a level. It does not apply to advisories — those are a different kind of claim, not a quieter one, so `showAdvisories` controls them. |
 | **The gate** | Hover shows the explanation and the comprehension question, not the fix. Run **CodeSentinel: Answer the Comprehension Question** to unlock it. |
 
 ## Settings
@@ -63,6 +77,7 @@ that is for exactly one of them to decide.
 | `codesentinel.showAdvisories` | `true` | Show advisory heuristics as Hints |
 | `codesentinel.showFix` | `false` | Skip the gate and show fixes inline |
 | `codesentinel.gutterIcons` | `true` | Highlight lines with findings |
+| `codesentinel.minSeverity` | `low` | Lowest severity shown as a diagnostic |
 | `codesentinel.timeoutMs` | `30000` | Give up on a scan after this long |
 
 ## Commands

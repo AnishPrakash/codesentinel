@@ -71,6 +71,9 @@ def enclosing_function(node: Node) -> Node | None:
         "function_expression",
         "arrow_function",
         "method_definition",
+        "method_declaration",           # java
+        "constructor_declaration",
+        "lambda_expression",
     }
     for a in ancestors(node):
         if a.type in fn_types:
@@ -83,6 +86,7 @@ def max_depth(node: Node) -> int:
     block_types = {
         "block", "if_statement", "for_statement", "while_statement",
         "try_statement", "with_statement", "switch_statement",
+        "enhanced_for_statement", "switch_block",       # java
     }
     best = 0
 

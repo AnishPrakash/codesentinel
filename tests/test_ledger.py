@@ -83,10 +83,13 @@ def test_no_ledger_flag_writes_nothing():
 
 
 def test_progress_command():
+    """Asserted against the taxonomy, not a hardcoded count - adding a class
+    should not break this test, only change the denominator."""
+    from codesentinel.rules.engine import DETERMINISTIC
     ledger.record_attempt("CS002", passed=True)
     r = runner.invoke(app, ["progress"])
     assert r.exit_code == 0
-    assert "1 of 9" in r.stdout
+    assert f"1 of {len(DETERMINISTIC)}" in r.stdout
 
 
 def test_history_command():

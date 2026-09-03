@@ -14,7 +14,7 @@ const path = require('path');
 
 const python = process.argv[2] || process.env.PYTHON || 'python';
 const repoRoot = path.resolve(__dirname, '..', '..');
-const target = path.join(repoRoot, 'demo', 'invoices.py');
+const target = process.argv[3] || path.join(repoRoot, 'demo');
 
 const REQUIRED_FINDING_FIELDS = [
   'rule_id',
@@ -97,14 +97,25 @@ child.on('close', (code) => {
     ok('coverage statement present');
   }
 
-  const file = report.files[0];
-  if (!file || !Array.isArray(file.findings) || file.findings.length === 0) {
-    fail('expected findings on the demo file');
+  const files = report.files.filter((f) => f.findings.length > 0);
+  if (files.length === 0) {
+    fail('expected findings on the demo files');
     process.exit(1);
   }
-  ok(`${file.findings.length} finding(s) on ${path.basename(file.path)}`);
+  ok(`${files.length} file(s) with findings, ${report.stats.findings} total`);
 
-  for (const f of file.findings) {
+  const languages = new Set(files.map((f) => f.language));
+  for (const want of ['python', 'javascript', 'java']) {
+    if (!languages.has(want)) {
+      fail(`no ${want} file in the report - is that language wired up?`);
+    }
+  }
+  ok(`languages present: ${[...languages].sort().join(', ')}`);
+
+  const file = files[0];
+  const allFindings = files.flatMap((f) => f.findings);
+
+  for (const f of allFindings) {
     for (const field of REQUIRED_FINDING_FIELDS) {
       if (!(field in f)) {
         fail(`finding ${f.rule_id} is missing "${field}"`);
@@ -119,7 +130,7 @@ child.on('close', (code) => {
   }
   ok('every finding carries all fields the extension reads');
 
-  const gated = file.findings.filter((f) => f.question);
+  const gated = allFindings.filter((f) => f.question);
   if (gated.length === 0) {
     fail('no finding is gated - the comprehension gate is not reaching the editor');
   } else {
@@ -132,7 +143,7 @@ child.on('close', (code) => {
     ok('credentials are redacted in the JSON output');
   }
 
-  const tiers = new Set(file.findings.map((f) => f.tier));
+  const tiers = new Set(allFindings.map((f) => f.tier));
   ok(`tiers present: ${[...tiers].join(', ')}`);
 
   console.log(

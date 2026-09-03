@@ -36,8 +36,44 @@ jobs:
         with:
           python-version: "3.11"
       - run: pip install -r requirements.txt && pip install -e .
-      - name: Compile the extension
+      - name: Build the extension
         working-directory: vscode-extension
-        run: npm install && npm run compile
+        run: |
+          npm install
+          npm run typecheck
+          npm run bundle
       - name: Verify the CLI/extension JSON contract
         run: node vscode-extension/scripts/verify-bridge.js python
+      - name: Package the VSIX
+        working-directory: vscode-extension
+        run: npx --yes @vscode/vsce package
+      - uses: actions/upload-artifact@v4
+        with:
+          name: codesentinel-vsix
+          path: vscode-extension/*.vsix
+
+  hook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: pip install -r requirements.txt && pip install -e .
+      - name: The pre-commit hook must block a vulnerable staged file
+        run: |
+          set -e
+          git config --global user.email ci@example.com
+          git config --global user.name ci
+          mkdir -p /tmp/hooktest && cd /tmp/hooktest && git init -q -b main
+          cs install-hook --repo /tmp/hooktest
+          echo 'x = 1' > ok.py && git add ok.py
+          git commit -q -m clean
+          printf 'import sqlite3\ndef f(u):\n    c=sqlite3.connect("a").cursor()\n    c.execute("SELECT * FROM t WHERE id = " + u)\n' > bad.py
+          git add bad.py
+          if git commit -q -m bad; then
+            echo "FAIL: the hook let a critical finding through"; exit 1
+          fi
+          echo "ok: hook blocked the commit"
+          git commit -q --no-verify -m bypass
+          echo "ok: --no-verify still works"

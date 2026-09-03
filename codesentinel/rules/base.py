@@ -92,3 +92,21 @@ def redact(text: str) -> str:
         return v if len(v) <= 8 else f"{v[:4]}{'*' * (len(v) - 8)}{v[-4:]}"
 
     return re.sub(r"""(?<=["'])[^"']{9,}(?=["'])""", mask, text)
+
+
+def looks_like_request_target(name_context: str, call_context: str) -> bool:
+    """Is this http:// string actually a request target?
+
+    Two ways to tell, and neither may use \b anchors on the identifier: a name
+    like REPORT_ENDPOINT or base_url has word characters either side of the
+    keyword, so a leading \b never fires. That exact bug silently disabled this
+    rule the first time it was written.
+    """
+    import re as _re
+    NAME_HINT = _re.compile(
+        r"(?i)(url|uri|endpoint|host|webhook|api|base|server|origin|callback|link)")
+    CALL_HINT = _re.compile(
+        r"(?i)(requests|httpx|urllib|urlopen|aiohttp|session|client|fetch|axios|"
+        r"got|superagent|xmlhttprequest|httpclient|httpurlconnection|resttemplate|"
+        r"okhttp|webclient|openconnection|\.get\(|\.post\(|\.put\(|\.delete\()")
+    return bool(NAME_HINT.search(name_context) or CALL_HINT.search(call_context))

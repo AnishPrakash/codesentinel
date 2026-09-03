@@ -1,0 +1,109 @@
+{
+  "_about": {
+    "source": "NIST SP 800-53 Rev. 5, Security and Privacy Controls for Information Systems and Organizations",
+    "url": "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final",
+    "note": "Control titles are quoted verbatim. The mapping from a CodeSentinel class to a control is our judgement, not a NIST publication - it is stated as 'relates to' for that reason. SP 800-53 controls are organisational and system-level; a single line of code implements part of one, it does not satisfy one."
+  },
+  "CS001": {
+    "control": "IA-5",
+    "title": "Authenticator Management",
+    "summary": "Manage system authenticators by verifying the identity of the individual, group, role, service, or device receiving the authenticator; establishing initial authenticator content; and protecting authenticator content from unauthorized disclosure and modification.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=IA-5"
+  },
+  "CS002": {
+    "control": "SI-10",
+    "title": "Information Input Validation",
+    "summary": "Check the validity of system inputs for defined information inputs.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SI-10"
+  },
+  "CS003": {
+    "control": "SI-10",
+    "title": "Information Input Validation",
+    "summary": "Check the validity of system inputs for defined information inputs.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SI-10"
+  },
+  "CS004": {
+    "control": "SC-13",
+    "title": "Cryptographic Protection",
+    "summary": "Determine the cryptographic uses and implement the types of cryptography required for each use.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-13"
+  },
+  "CS005": {
+    "control": "AC-3",
+    "title": "Access Enforcement",
+    "summary": "Enforce approved authorizations for logical access to information and system resources in accordance with applicable access control policies.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=AC-3"
+  },
+  "CS006": {
+    "control": "SR-3",
+    "title": "Supply Chain Controls and Processes",
+    "summary": "Establish a process or processes to identify and address weaknesses or deficiencies in the supply chain elements and processes.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SR-3"
+  },
+  "CS007": {
+    "control": "SI-10",
+    "title": "Information Input Validation",
+    "summary": "Check the validity of system inputs for defined information inputs.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SI-10"
+  },
+  "CS008": {
+    "control": "AC-3",
+    "title": "Access Enforcement",
+    "summary": "Enforce approved authorizations for logical access to information and system resources in accordance with applicable access control policies.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=AC-3"
+  },
+  "CS009": {
+    "control": "CM-6",
+    "title": "Configuration Settings",
+    "summary": "Establish and document configuration settings for components employed within the system that reflect the most restrictive mode consistent with operational requirements.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=CM-6"
+  },
+  "CS010": {
+    "control": "SC-23",
+    "title": "Session Authenticity",
+    "summary": "Protect the authenticity of communications sessions.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-23"
+  },
+  "CS011": {
+    "control": "SC-5",
+    "title": "Denial-of-Service Protection",
+    "summary": "Protect against or limit the effects of denial-of-service events.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-5"
+  },
+  "CS012": {
+    "control": "SI-10",
+    "title": "Information Input Validation",
+    "summary": "Check the validity of system inputs for defined information inputs.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SI-10"
+  },
+  "CS013": {
+    "control": "SC-3",
+    "title": "Security Function Isolation",
+    "summary": "Isolate security functions from nonsecurity functions.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-3"
+  },
+  "CS014": {
+    "control": "SI-10",
+    "title": "Information Input Validation",
+    "summary": "Check the validity of system inputs for defined information inputs.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SI-10"
+  },
+  "CS015": {
+    "control": "SC-8",
+    "title": "Transmission Confidentiality and Integrity",
+    "summary": "Protect the confidentiality and integrity of transmitted information.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-8"
+  },
+  "CS016": {
+    "control": "SC-8",
+    "title": "Transmission Confidentiality and Integrity",
+    "summary": "Protect the confidentiality and integrity of transmitted information.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=SC-8"
+  },
+  "CS017": {
+    "control": "AU-9",
+    "title": "Protection of Audit Information",
+    "summary": "Protect audit information and audit logging tools from unauthorized access, modification, and deletion.",
+    "url": "https://csrc.nist.gov/projects/cprt/catalog#/cprt/framework/version/SP_800_53_5_1_1/home?element=AU-9"
+  }
+}

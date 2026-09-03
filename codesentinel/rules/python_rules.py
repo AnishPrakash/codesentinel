@@ -13,8 +13,10 @@ from .base import Rule
 PY = frozenset({Language.PYTHON})
 
 AWS_KEY = re.compile(r"\bAKIA[0-9A-Z]{16}\b")
+GCP_KEY = re.compile(r"\bAIza[0-9A-Za-z\-_]{35}\b")
 GENERIC_KEY = re.compile(
-    r"\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|xox[baprs]-[A-Za-z0-9-]{10,})\b")
+    r"\b(sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{30,}|gh[opsu]_[A-Za-z0-9]{30,}|"
+    r"xox[baprs]-[A-Za-z0-9-]{10,}|AIza[0-9A-Za-z\-_]{35})\b")
 PRIVATE_KEY = re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")
 SECRET_NAME = re.compile(
     r"(?i)(pass(word|wd)|secret|token|api[_-]?key|access[_-]?key|private[_-]?key|credential)"
@@ -40,7 +42,20 @@ def _callee(ps: ParsedSource, call: Node) -> str:
 
 # ------------------------------------------------------------ CS001 secrets
 
+COMMENTED_CREDENTIAL = re.compile(
+    r"""(?im)^\s*#\s*\w*(pass(word|wd)?|secret|token|api[_-]?key|access[_-]?key)\w*"""
+    r"""\s*=\s*["'][^"']{4,}["']""")
+
+
 def match_hardcoded_secret(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
+    # A credential does not stop being a credential because it was commented out.
+    # git keeps it, and so does anyone who cloned the repo.
+    for node in walk(ps.root):
+        if node.type == "comment" and COMMENTED_CREDENTIAL.search(ps.text(node)):
+            yield node, ("a credential is present in a commented-out line - commenting "
+                         "it out removes it from execution, not from the file or its "
+                         "history")
+
     for node in walk(ps.root):
         if node.type != "assignment":
             continue
@@ -109,14 +124,27 @@ def match_command_injection(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
 
 # ------------------------------------------------------------- CS004 weak crypto
 
+WEAK_CIPHER = re.compile(r"(?i)\b(DES|TripleDES|DES3|ARC[24]|RC[24]|Blowfish|IDEA|CAST5)\b")
+ECB_MODE = re.compile(r"(?i)\bMODE_ECB\b|modes\.ECB\b")
+
+
 def match_weak_crypto(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
     for node in walk(ps.root):
         if node.type != "call":
             continue
         callee = _callee(ps, node)
+        text = ps.text(node)
         if WEAK_HASH_CALL.search(callee + "("):
             algo = "MD5" if re.search(r"(?i)md5", callee) else "SHA-1"
             yield node, f"{algo} is used, which is broken for any security purpose"
+        elif WEAK_CIPHER.search(callee) and re.search(r"(?i)\b(new|Cipher|encrypt)\b", text):
+            algo = WEAK_CIPHER.search(callee).group(1).upper()
+            yield node, (f"{algo} is used; it is a deprecated cipher with a key or block "
+                         "size too small to be safe today")
+        elif ECB_MODE.search(text):
+            yield node, ("ECB mode encrypts identical plaintext blocks to identical "
+                         "ciphertext blocks, so the structure of the data survives "
+                         "encryption")
         elif re.search(r"(?i)\brandom\.(random|randint|choice|shuffle|randrange)\b", callee):
             enclosing = ps.text(enclosing_function(node) or node)
             if SECRET_NAME.search(enclosing):

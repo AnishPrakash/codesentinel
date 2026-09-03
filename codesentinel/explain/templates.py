@@ -6,7 +6,7 @@ import dataclasses
 import json
 from functools import lru_cache
 
-from ..config import DATA_DIR
+from ..config import DATA_DIR, get_settings
 from ..models import Finding, Language
 
 
@@ -22,15 +22,49 @@ def owasp_data() -> dict:
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
 
 
-def grounding_block(finding: Finding) -> str:
-    """Both citations, verbatim, so fidelity can be diffed against the source."""
+@lru_cache(maxsize=1)
+def nist_data() -> dict:
+    path = DATA_DIR / "grounding" / "nist.json"
+    return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}
+
+
+def nist_block(rule_id: str) -> str:
+    """NIST SP 800-53 control this class relates to.
+
+    Deliberately worded as 'relates to'. SP 800-53 controls are organisational;
+    one line of code is evidence toward a control, never satisfaction of one,
+    and claiming otherwise is the kind of thing a compliance judge catches.
+    """
+    entry = nist_data().get(rule_id)
+    if not entry:
+        return ""
+    return (f"\n\nRelates to NIST SP 800-53 {entry['control']} ({entry['title']}): "
+            f"{entry['summary']}")
+
+
+# NIST control text is long and organisational, so it is opt-in per run rather
+# than a config file setting. `cs scan --nist` flips it; nothing else reads it.
+_INCLUDE_NIST = False
+
+
+def set_nist(enabled: bool) -> None:
+    global _INCLUDE_NIST
+    _INCLUDE_NIST = enabled
+
+
+def grounding_block(finding: Finding, include_nist: bool | None = None) -> str:
+    """Citations, verbatim, so fidelity can be diffed against the source."""
     parts = []
     if cwe := cwe_data().get(finding.cwe):
         parts.append(f"{finding.cwe} ({cwe['name']}): {cwe['summary']}")
     key = finding.owasp.split(" ")[0].strip(" -").strip()
     if owasp := owasp_data().get(key):
         parts.append(f"{key} ({owasp['name']}): {owasp['summary']}")
-    return ("\n\n" + "\n\n".join(parts)) if parts else ""
+    block = ("\n\n" + "\n\n".join(parts)) if parts else ""
+    want = _INCLUDE_NIST if include_nist is None else include_nist
+    if want or get_settings().show_nist:
+        block += nist_block(finding.rule_id)
+    return block
 
 
 # ------------------------------------------------------------- the templates
@@ -395,7 +429,12 @@ def explain(finding: Finding) -> Finding:
     evidence = finding.explanation.rstrip().rstrip(".")   # matcher's evidence string
     what = f"On line {finding.line}, {evidence}."
 
-    fix_key = "fix_python" if finding.language is Language.PYTHON else "fix_javascript"
+    if finding.language is Language.PYTHON:
+        fix_key = "fix_python"
+    elif finding.language is Language.JAVA:
+        fix_key = "fix_java" if "fix_java" in tpl else "fix_python"
+    else:
+        fix_key = "fix_javascript"
 
     return dataclasses.replace(
         finding,
@@ -403,3 +442,215 @@ def explain(finding: Finding) -> Finding:
         attack=tpl["attack"],
         fix=tpl[fix_key],
     )
+
+
+# ------------------------------- CS014-CS017, added in the second pass
+
+TEMPLATES.update({
+    "CS014": {
+        "why": (
+            "Deserialization does not just read data - it rebuilds objects, which means "
+            "running the constructors and hooks the data names. If the bytes came from "
+            "outside, the caller chose which of your classes to instantiate and with what."
+        ),
+        "attack": (
+            "A crafted payload names a class already on your classpath whose constructor "
+            "or setter does something useful - opening a connection, writing a file, "
+            "spawning a process. No memory corruption, no exploit chain: the format is "
+            "working as designed, and the design assumed the data was yours."
+        ),
+        "fix_python": (
+            "# Use a format that describes data, not objects\n"
+            "import json\n"
+            "payload = json.loads(raw)          # JSON cannot name a class\n\n"
+            "# If YAML is required, name the safe loader explicitly\n"
+            "import yaml\n"
+            "payload = yaml.safe_load(raw)      # or yaml.load(raw, Loader=yaml.SafeLoader)\n\n"
+            "# If pickle is genuinely required, it must be authenticated:\n"
+            "#   sign the bytes with hmac and verify before unpickling,\n"
+            "#   and treat the key as you would a signing key."
+        ),
+        "fix_javascript": (
+            "// JSON.parse builds plain objects and functions never survive it\n"
+            "const payload = JSON.parse(raw);\n\n"
+            "// YAML: pin the schema so the document cannot name types\n"
+            "const yaml = require('js-yaml');\n"
+            "const doc = yaml.load(raw, { schema: yaml.JSON_SCHEMA });\n\n"
+            "// Never node-serialize/unserialize on anything a client sent."
+        ),
+        "fix_java": (
+            "// Prefer a data format: Jackson/Gson into a declared type\n"
+            "ObjectMapper mapper = new ObjectMapper();\n"
+            "Order order = mapper.readValue(raw, Order.class);   // you name the type\n\n"
+            "// If Java serialization is unavoidable, allow-list the classes:\n"
+            "ObjectInputFilter filter = ObjectInputFilter.Config.createFilter(\n"
+            "    \"com.example.Order;com.example.Item;!*\");\n"
+            "in.setObjectInputFilter(filter);\n\n"
+            "// SnakeYAML: new Yaml(new SafeConstructor(new LoaderOptions()))"
+        ),
+    },
+    "CS015": {
+        "why": (
+            "TLS does two things: it encrypts the channel, and it proves who is on the "
+            "other end. Turning off certificate validation keeps the encryption and "
+            "discards the proof - so the connection is encrypted to whoever answered, "
+            "which may not be who you meant."
+        ),
+        "attack": (
+            "Anyone positioned between you and the server - a compromised router, a "
+            "hostile access point, a DNS answer someone else supplied - presents their "
+            "own certificate. Your client accepts it, decrypts your traffic, reads the "
+            "credentials in it, and forwards everything on so nothing looks wrong."
+        ),
+        "fix_python": (
+            "# Leave verification on. It is the default for a reason.\n"
+            "requests.get(url)                      # verify=True is the default\n\n"
+            "# Internal CA? Point at the bundle rather than switching checks off:\n"
+            "requests.get(url, verify=\"/etc/ssl/certs/internal-ca.pem\")\n"
+            "#   or set REQUESTS_CA_BUNDLE / SSL_CERT_FILE in the environment\n\n"
+            "# Self-signed in dev only: add the cert to a dev-only trust store,\n"
+            "# never verify=False, which also ships to production by accident."
+        ),
+        "fix_javascript": (
+            "// Leave it on.\n"
+            "const res = await fetch(url);          // validates by default\n\n"
+            "// Internal CA - trust the CA, do not stop checking:\n"
+            "const https = require('node:https');\n"
+            "const agent = new https.Agent({ ca: fs.readFileSync('internal-ca.pem') });\n"
+            "await fetch(url, { agent });\n\n"
+            "// NODE_TLS_REJECT_UNAUTHORIZED=0 disables this process-wide. Never ship it."
+        ),
+        "fix_java": (
+            "// Do not install a permissive TrustManager. Trust the CA instead:\n"
+            "//   keytool -importcert -alias internal -file ca.pem \\\n"
+            "//           -keystore internal-truststore.jks\n"
+            "// then point the JVM at it:\n"
+            "//   -Djavax.net.ssl.trustStore=internal-truststore.jks\n\n"
+            "// A checkServerTrusted that neither validates nor throws accepts\n"
+            "// every certificate ever issued, including one made a second ago."
+        ),
+    },
+    "CS016": {
+        "why": (
+            "http:// is unencrypted. Everything in the request and the response - the "
+            "URL, the headers, the body, any token or session cookie - travels as "
+            "readable text across every network between here and the server."
+        ),
+        "attack": (
+            "Anyone on the path reads it: the coffee-shop wifi, the corporate proxy, "
+            "the hosting provider, anyone who has quietly redirected the route. They "
+            "can also change the response on its way back, which is how a plain-HTTP "
+            "script tag becomes code execution in the page."
+        ),
+        "fix_python": (
+            "BASE_URL = \"https://api.example.com\"      # not http://\n\n"
+            "# If the service genuinely has no TLS, that is the bug to fix.\n"
+            "# Until then, do not send anything through it you would not publish."
+        ),
+        "fix_javascript": (
+            "const BASE_URL = 'https://api.example.com';   // not http://\n\n"
+            "// Browsers block mixed content for exactly this reason - an https page\n"
+            "// loading an http script would undo the page's own protection."
+        ),
+        "fix_java": (
+            "private static final String BASE_URL = \"https://api.example.com\";\n\n"
+            "// Android: cleartext is blocked by default since API 28. Do not\n"
+            "// re-enable it with android:usesCleartextTraffic=\"true\"."
+        ),
+    },
+    "CS017": {
+        "why": (
+            "A log line is a copy of the value, written somewhere with different rules. "
+            "Logs are read by more people than the code, kept longer than the session, "
+            "and shipped to systems the security review never covered - so a secret in "
+            "a log has quietly left the boundary you designed for it."
+        ),
+        "attack": (
+            "Nobody has to break in. Support staff, an aggregation service, a shared "
+            "dashboard, a debug bundle attached to a ticket, or a stack trace on an "
+            "error page - each is a normal path to a log, and each now carries the "
+            "credential. Rotating it later does not un-read it."
+        ),
+        "fix_python": (
+            "# Log the fact, never the value\n"
+            "logger.info(\"auth attempt for user_id=%s outcome=%s\", user_id, outcome)\n\n"
+            "# If you need to correlate a token across lines, log a digest:\n"
+            "import hashlib\n"
+            "logger.debug(\"token fp=%s\", hashlib.sha256(token.encode()).hexdigest()[:12])\n\n"
+            "# And add a filter so it cannot happen by accident:\n"
+            "#   logging.Filter that redacts known secret-shaped keys"
+        ),
+        "fix_javascript": (
+            "// Log the fact, never the value\n"
+            "logger.info({ userId, outcome }, 'auth attempt');\n\n"
+            "// pino has redaction built in - use it as a backstop:\n"
+            "const logger = require('pino')({\n"
+            "  redact: ['password', 'token', 'req.headers.authorization'],\n"
+            "});"
+        ),
+        "fix_java": (
+            "// Log the fact, never the value\n"
+            "log.info(\"auth attempt userId={} outcome={}\", userId, outcome);\n\n"
+            "// Never log the whole request or a credential-bearing object.\n"
+            "// Add a Logback/Log4j2 rewrite or converter that masks known keys,\n"
+            "// so a future careless line is caught by the pipeline, not by review."
+        ),
+    },
+})
+
+
+# --- Java fixes for the classes that already had Python and JavaScript ones ---
+
+TEMPLATES["CS001"]["fix_java"] = (
+    "// Read it from the environment or a secret manager\n"
+    "private static final String DB_PASSWORD = System.getenv(\"DB_PASSWORD\");\n\n"
+    "// Spring: @Value(\"${db.password}\") backed by a vault or env, never a\n"
+    "// committed application.properties.\n\n"
+    "// Then, outside the code: revoke the exposed value, it is already public;\n"
+    "// and purge it from git history if the repo was ever pushed."
+)
+TEMPLATES["CS002"]["fix_java"] = (
+    "// PreparedStatement with bound parameters - the value can never become syntax\n"
+    "PreparedStatement ps = conn.prepareStatement(\n"
+    "    \"SELECT * FROM users WHERE id = ?\");\n"
+    "ps.setString(1, id);\n"
+    "ResultSet rs = ps.executeQuery();\n\n"
+    "// JPA: entityManager.createQuery(\"...where u.id = :id\").setParameter(\"id\", id)"
+)
+TEMPLATES["CS003"]["fix_java"] = (
+    "// Pass an argument array - no shell parses it\n"
+    "ProcessBuilder pb = new ProcessBuilder(\"convert\", filename, \"out.png\");\n"
+    "pb.redirectErrorStream(true);\n"
+    "Process p = pb.start();\n\n"
+    "// Runtime.exec(String) splits on whitespace and is easy to get wrong;\n"
+    "// Runtime.exec(String[]) or ProcessBuilder is the safe shape."
+)
+TEMPLATES["CS004"]["fix_java"] = (
+    "// Integrity / general hashing\n"
+    "MessageDigest md = MessageDigest.getInstance(\"SHA-256\");\n\n"
+    "// Symmetric encryption - authenticated mode, never ECB\n"
+    "Cipher c = Cipher.getInstance(\"AES/GCM/NoPadding\");\n\n"
+    "// Passwords - a slow KDF, never a plain hash\n"
+    "// org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder\n"
+    "// or Argon2PasswordEncoder\n\n"
+    "// Randomness for tokens\n"
+    "SecureRandom rng = new SecureRandom();"
+)
+TEMPLATES["CS005"]["fix_java"] = (
+    "@GetMapping(\"/user/{id}\")\n"
+    "@PreAuthorize(\"isAuthenticated()\")            // 1. establish who is asking\n"
+    "public ResponseEntity<User> getUser(@PathVariable Long id,\n"
+    "                                    Authentication auth) {\n"
+    "    return repo.findByIdAndOwner(id, auth.getName())   // 2. constrain to them\n"
+    "               .map(ResponseEntity::ok)\n"
+    "               .orElseGet(() -> ResponseEntity.notFound().build());\n"
+    "}"
+)
+TEMPLATES["CS008"]["fix_java"] = (
+    "Path base = Paths.get(\"/srv/uploads\").toRealPath();\n"
+    "Path target = base.resolve(name).normalize();      // normalise THEN check\n"
+    "if (!target.startsWith(base)) {\n"
+    "    throw new AccessDeniedException(name);\n"
+    "}\n"
+    "return Files.readAllBytes(target);"
+)
