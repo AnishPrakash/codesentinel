@@ -61,11 +61,36 @@ def _write(path: Path, registry: str, names: set[str]) -> None:
     print(f"{path.name}: {len(names)} packages")
 
 
-def pypi(n: int, merge: bool) -> None:
+# The dataset moved host once already (hugovk.github.io -> hugovk.dev), and the
+# old address answers with an HTML 404 rather than an error, so the failure
+# arrived as a JSONDecodeError from deep inside httpx. _fetch_json exists so a
+# moved or broken source says so in one line.
+PYPI_TOP_URL = "https://hugovk.dev/top-pypi-packages/top-pypi-packages.min.json"
+
+
+def _fetch_json(url: str, what: str):
     import httpx
 
-    url = "https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json"
-    rows = httpx.get(url, timeout=60).json()["rows"][:n]
+    r = httpx.get(url, timeout=60, follow_redirects=True)
+    if r.status_code != 200:
+        raise RuntimeError(f"{what}: HTTP {r.status_code} from {url}")
+    ctype = r.headers.get("content-type", "")
+    if "json" not in ctype:
+        # An HTML body here means the URL moved, not that the data is malformed.
+        raise RuntimeError(
+            f"{what}: {url} returned {ctype or 'no content-type'}, not JSON. "
+            "The source has probably moved - check the URL before editing anything else."
+        )
+    return r.json()
+
+
+def pypi(n: int, merge: bool) -> None:
+    body = _fetch_json(PYPI_TOP_URL, "PyPI top packages")
+    if "rows" not in body:
+        raise RuntimeError(
+            f"PyPI top packages: no 'rows' key (got {sorted(body)[:6]}). "
+            "The schema changed.")
+    rows = body["rows"][:n]
     names = {r["project"].lower() for r in rows}
     path = OUT / "pypi_top.txt"
     names |= {a.lower() for a in PY_ALIASES}
@@ -211,10 +236,25 @@ def main() -> None:
     args = ap.parse_args()
 
     merge = not args.replace
-    if args.only != "npm":
-        pypi(args.count, merge)
-    if args.only != "pypi":
-        npm(args.count, merge)
+
+    # One registry failing must not skip the other. The first run of this
+    # script died on PyPI and never attempted npm at all, which reads as "the
+    # whole rebuild is broken" when half of it was fine.
+    failures: list[str] = []
+    for name, fn in (("pypi", pypi), ("npm", npm)):
+        if args.only and args.only != name:
+            continue
+        try:
+            fn(args.count, merge)
+        except SystemExit:
+            raise
+        except Exception as exc:                      # noqa: BLE001
+            failures.append(f"{name}: {exc}")
+            print(f"  {name}: FAILED - {exc}")
+
+    if failures:
+        print("\nThe committed manifests for the failed registries are untouched.")
+        raise SystemExit(1)
 
     print("\nNow re-run the tests before committing:")
     print("  pytest -q")

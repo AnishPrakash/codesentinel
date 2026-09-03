@@ -95,3 +95,50 @@ def test_no_alias_import_is_reported_as_unrecognised() -> None:
         if any(f.rule_id == "CS006" for f in run_rules(parsed)):
             flagged.append(import_name)
     assert not flagged, f"CS006 fires on correct imports: {flagged}"
+
+
+def test_a_moved_source_is_reported_as_a_moved_source() -> None:
+    """The failure that actually happened, pinned.
+
+    hugovk.github.io kept answering after the dataset moved to hugovk.dev - with
+    an HTML 404 page. httpx handed that to json.loads and the user got
+    "Expecting value: line 1 column 1", which points at the data being malformed
+    rather than at the URL being wrong. A wrong diagnosis costs more than a
+    failure does.
+    """
+    import httpx
+
+    builder = _load_builder()
+
+    def html_404(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(404, html="<!doctype html><title>404</title>")
+
+    transport = httpx.MockTransport(html_404)
+    real_get = httpx.get
+    httpx.get = lambda url, **kw: httpx.Client(transport=transport).get(url)
+    try:
+        with pytest.raises(RuntimeError) as err:
+            builder._fetch_json("https://example.invalid/x.json", "PyPI top packages")
+    finally:
+        httpx.get = real_get
+    assert "HTTP 404" in str(err.value)
+
+
+def test_an_html_body_with_a_200_is_also_caught() -> None:
+    # Some hosts serve a landing page with 200 instead of a 404.
+    import httpx
+
+    builder = _load_builder()
+
+    def html_200(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, html="<!doctype html><title>hi</title>")
+
+    transport = httpx.MockTransport(html_200)
+    real_get = httpx.get
+    httpx.get = lambda url, **kw: httpx.Client(transport=transport).get(url)
+    try:
+        with pytest.raises(RuntimeError) as err:
+            builder._fetch_json("https://example.invalid/x.json", "PyPI top packages")
+    finally:
+        httpx.get = real_get
+    assert "probably moved" in str(err.value)
