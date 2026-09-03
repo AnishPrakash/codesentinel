@@ -1,0 +1,37 @@
+{
+  "A01:2021": {
+    "name": "Broken Access Control",
+    "summary": "Access control enforces policy such that users cannot act outside of their intended permissions. Failures typically lead to unauthorized information disclosure, modification, or destruction of all data or performing a business function outside the user's limits.",
+    "url": "https://owasp.org/Top10/A01_2021-Broken_Access_Control/"
+  },
+  "A02:2021": {
+    "name": "Cryptographic Failures",
+    "summary": "The first thing is to determine the protection needs of data in transit and at rest. Failures related to cryptography often lead to exposure of sensitive data or system compromise.",
+    "url": "https://owasp.org/Top10/A02_2021-Cryptographic_Failures/"
+  },
+  "A03:2021": {
+    "name": "Injection",
+    "summary": "An application is vulnerable to attack when user-supplied data is not validated, filtered, or sanitized by the application, and hostile data is used directly in dynamic queries or commands.",
+    "url": "https://owasp.org/Top10/A03_2021-Injection/"
+  },
+  "A04:2021": {
+    "name": "Insecure Design",
+    "summary": "Insecure design is a broad category representing different weaknesses, expressed as missing or ineffective control design. Insecure design is not the source for all other Top 10 risk categories - there is a difference between insecure design and insecure implementation.",
+    "url": "https://owasp.org/Top10/A04_2021-Insecure_Design/"
+  },
+  "A05:2021": {
+    "name": "Security Misconfiguration",
+    "summary": "The application might be vulnerable if it is missing appropriate security hardening across any part of the application stack, or has improperly configured permissions on cloud services.",
+    "url": "https://owasp.org/Top10/A05_2021-Security_Misconfiguration/"
+  },
+  "A06:2021": {
+    "name": "Vulnerable and Outdated Components",
+    "summary": "You are likely vulnerable if you do not know the versions of all components you use, including nested dependencies, or if the software is unsupported, out of date, or not scanned for vulnerabilities.",
+    "url": "https://owasp.org/Top10/A06_2021-Vulnerable_and_Outdated_Components/"
+  },
+  "A07:2021": {
+    "name": "Identification and Authentication Failures",
+    "summary": "Confirmation of the user's identity, authentication, and session management is critical to protect against authentication-related attacks. Applications may be vulnerable where they use plain text, encrypted, or weakly hashed passwords, or expose credentials.",
+    "url": "https://owasp.org/Top10/A07_2021-Identification_and_Authentication_Failures/"
+  }
+}

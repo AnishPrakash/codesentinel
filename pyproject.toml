@@ -1,0 +1,40 @@
+[project]
+name = "codesentinel"
+version = "0.1.0"
+description = "Local-first code security review with plain-language explanations"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+keywords = ["security", "static-analysis", "cwe", "owasp", "ai-generated-code"]
+dynamic = ["dependencies"]
+
+[project.scripts]
+codesentinel = "codesentinel.cli:app"
+cs = "codesentinel.cli:app"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = [
+    "codesentinel", "codesentinel.rules", "codesentinel.deps",
+    "codesentinel.features", "codesentinel.explain",
+    "codesentinel.triage", "codesentinel.ledger",
+]
+
+[tool.setuptools.package-data]
+codesentinel = ["data/manifests/*.txt", "data/grounding/*.json"]
+
+[tool.setuptools.dynamic]
+dependencies = { file = ["requirements.txt"] }
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+# Deliberately-vulnerable code. Linting it would be asking ruff to fix the
+# things CodeSentinel is meant to find.
+exclude = ["demo", "tests/fixtures"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

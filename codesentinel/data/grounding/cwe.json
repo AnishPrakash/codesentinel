@@ -1,0 +1,67 @@
+{
+  "CWE-798": {
+    "name": "Use of Hard-coded Credentials",
+    "summary": "The product contains hard-coded credentials, such as a password or cryptographic key, which it uses for its own inbound authentication, outbound communication to external components, or encryption of internal data.",
+    "url": "https://cwe.mitre.org/data/definitions/798.html"
+  },
+  "CWE-89": {
+    "name": "Improper Neutralization of Special Elements used in an SQL Command",
+    "summary": "The product constructs all or part of an SQL command using externally-influenced input, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended SQL command.",
+    "url": "https://cwe.mitre.org/data/definitions/89.html"
+  },
+  "CWE-78": {
+    "name": "Improper Neutralization of Special Elements used in an OS Command",
+    "summary": "The product constructs all or part of an OS command using externally-influenced input, but it does not neutralize or incorrectly neutralizes special elements that could modify the intended command.",
+    "url": "https://cwe.mitre.org/data/definitions/78.html"
+  },
+  "CWE-327": {
+    "name": "Use of a Broken or Risky Cryptographic Algorithm",
+    "summary": "The product uses a broken or risky cryptographic algorithm or protocol.",
+    "url": "https://cwe.mitre.org/data/definitions/327.html"
+  },
+  "CWE-306": {
+    "name": "Missing Authentication for Critical Function",
+    "summary": "The product does not perform any authentication for functionality that requires a provable user identity or consumes a significant amount of resources.",
+    "url": "https://cwe.mitre.org/data/definitions/306.html"
+  },
+  "CWE-1104": {
+    "name": "Use of Unmaintained Third Party Components",
+    "summary": "The product relies on third-party components that are not actively supported or maintained by the original developer or a trusted proxy for the original developer.",
+    "url": "https://cwe.mitre.org/data/definitions/1104.html"
+  },
+  "CWE-79": {
+    "name": "Improper Neutralization of Input During Web Page Generation",
+    "summary": "The product does not neutralize or incorrectly neutralizes user-controllable input before it is placed in output that is used as a web page that is served to other users.",
+    "url": "https://cwe.mitre.org/data/definitions/79.html"
+  },
+  "CWE-22": {
+    "name": "Improper Limitation of a Pathname to a Restricted Directory",
+    "summary": "The product uses external input to construct a pathname that is intended to identify a file or directory located underneath a restricted parent directory, but does not properly neutralize special elements within the pathname that can cause it to resolve to a location outside of that directory.",
+    "url": "https://cwe.mitre.org/data/definitions/22.html"
+  },
+  "CWE-942": {
+    "name": "Permissive Cross-domain Policy with Untrusted Domains",
+    "summary": "The product uses a cross-domain policy file that includes domains that should not be trusted.",
+    "url": "https://cwe.mitre.org/data/definitions/942.html"
+  },
+  "CWE-352": {
+    "name": "Cross-Site Request Forgery (CSRF)",
+    "summary": "The web application does not, or can not, sufficiently verify whether a well-formed, valid, consistent request was intentionally provided by the user who submitted the request.",
+    "url": "https://cwe.mitre.org/data/definitions/352.html"
+  },
+  "CWE-770": {
+    "name": "Allocation of Resources Without Limits or Throttling",
+    "summary": "The product allocates a reusable resource or group of resources on behalf of an actor without imposing any restrictions on the size or number of resources that can be allocated.",
+    "url": "https://cwe.mitre.org/data/definitions/770.html"
+  },
+  "CWE-20": {
+    "name": "Improper Input Validation",
+    "summary": "The product receives input or data, but it does not validate or incorrectly validates that the input has the properties that are required to process the data safely and correctly.",
+    "url": "https://cwe.mitre.org/data/definitions/20.html"
+  },
+  "CWE-367": {
+    "name": "Time-of-check Time-of-use (TOCTOU) Race Condition",
+    "summary": "The product checks the state of a resource before using that resource, but the resource's state can change between the check and the use in a way that invalidates the results of the check.",
+    "url": "https://cwe.mitre.org/data/definitions/367.html"
+  }
+}

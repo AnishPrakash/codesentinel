@@ -1,0 +1,22 @@
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.ruff_cache/
+*.onnx
+!models/.gitkeep
+data/raw/
+data/processed/
+*.db
+report.md
+
+# vscode extension
+vscode-extension/node_modules/
+vscode-extension/out/
+vscode-extension/*.vsix
+
+# transfer artefact
+codesentinel-src.tar.gz

@@ -1,0 +1,118 @@
+{
+  "name": "codesentinel",
+  "displayName": "CodeSentinel",
+  "description": "Local-first code security review with plain-language explanations and a comprehension gate.",
+  "version": "0.1.0",
+  "publisher": "anishprakash",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AnishPrakash/codesentinel.git"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Linters", "Programming Languages", "Education"],
+  "keywords": ["security", "cwe", "owasp", "static-analysis", "ai-generated-code"],
+  "activationEvents": [
+    "onLanguage:python",
+    "onLanguage:javascript",
+    "onLanguage:javascriptreact",
+    "onLanguage:typescript",
+    "onLanguage:typescriptreact"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codesentinel.scanFile",
+        "title": "CodeSentinel: Scan This File",
+        "icon": "$(shield)"
+      },
+      {
+        "command": "codesentinel.scanWorkspace",
+        "title": "CodeSentinel: Scan Workspace"
+      },
+      {
+        "command": "codesentinel.clearDiagnostics",
+        "title": "CodeSentinel: Clear Findings"
+      },
+      {
+        "command": "codesentinel.learn",
+        "title": "CodeSentinel: Answer the Comprehension Question"
+      },
+      {
+        "command": "codesentinel.showProgress",
+        "title": "CodeSentinel: Show Learning Progress"
+      },
+      {
+        "command": "codesentinel.showOutput",
+        "title": "CodeSentinel: Show Log"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "codesentinel.scanFile",
+          "when": "resourceLangId =~ /^(python|javascript|javascriptreact|typescript|typescriptreact)$/",
+          "group": "navigation"
+        }
+      ]
+    },
+    "views": {
+      "explorer": [
+        {
+          "id": "codesentinel.findings",
+          "name": "CodeSentinel",
+          "icon": "$(shield)"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "CodeSentinel",
+      "properties": {
+        "codesentinel.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Interpreter used to run `python -m codesentinel`. Point this at the interpreter of the environment where CodeSentinel is installed (for example a conda env)."
+        },
+        "codesentinel.scanOnSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Scan a supported file every time it is saved."
+        },
+        "codesentinel.showAdvisories": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show advisory heuristics as Hints. Advisories are guesses about something absent and never fail a build."
+        },
+        "codesentinel.showFix": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show fixes inline without answering the comprehension question first. Off by default - the gate is the point."
+        },
+        "codesentinel.gutterIcons": {
+          "type": "boolean",
+          "default": true,
+          "description": "Highlight lines with findings in the editor."
+        },
+        "codesentinel.timeoutMs": {
+          "type": "number",
+          "default": 30000,
+          "description": "How long to wait for a scan before giving up."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "lint": "eslint src --ext ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "typescript": "^5.4.5"
+  }
+}

@@ -1,0 +1,4 @@
+flask==3.0.3
+requests==2.32.3
+pdfkit-lite
+sqlalchemy==2.0.36
