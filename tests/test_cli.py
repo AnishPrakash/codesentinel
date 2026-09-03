@@ -157,3 +157,23 @@ def test_help_renders_for_every_command():
         result = runner.invoke(app, [command, "--help"])
         assert result.exit_code == 0, f"{command} --help: {result.output}"
         assert "Usage:" in result.output, command
+
+
+def test_help_does_not_hardcode_a_class_count():
+    """A count in a help string is a claim about coverage.
+
+    `learn` advertised CS001..CS009 and `explain` CS001..CS013 for weeks after
+    there were seventeen classes. Nobody re-reads a help string when adding a
+    rule, so the string has to be derived from the rule table.
+    """
+    from typer.testing import CliRunner
+
+    from codesentinel.cli import app
+    from codesentinel.rules.engine import COVERED
+
+    runner = CliRunner()
+    for command in ("explain", "learn"):
+        out = runner.invoke(app, [command, "--help"]).output
+        assert str(len(COVERED)) in out, f"{command} --help omits the class count: {out}"
+        assert "CS009" not in out or len(COVERED) == 9, out
+        assert "CS013" not in out or len(COVERED) == 13, out

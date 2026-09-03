@@ -29,6 +29,13 @@ from .parser import parse
 from .rules.engine import COVERED, coverage_statement, run_rules
 from .triage import triage
 
+# Derived, never typed by hand. These help strings said "CS001..CS009" and
+# "CS001..CS013" long after there were seventeen classes: a hardcoded count is
+# a claim about coverage, and it goes stale the moment a rule is added.
+_RULE_ID_HELP = (f"one of the {len(COVERED)} rule ids, "
+                 f"{sorted(c[0] for c in COVERED)[0]}"
+                 f"..{sorted(c[0] for c in COVERED)[-1]}")
+
 app = typer.Typer(
     add_completion=False,
     help="Local-first code security review with plain-language explanations.",
@@ -299,7 +306,7 @@ def scan(
 
 
 @app.command()
-def explain(rule_id: str = typer.Argument(..., help="CS001..CS013")) -> None:
+def explain(rule_id: str = typer.Argument(..., help=_RULE_ID_HELP)) -> None:
     """Explain one rule class without scanning anything."""
     rid = rule_id.upper()
     tpl = TEMPLATES.get(rid)
@@ -330,7 +337,7 @@ def explain(rule_id: str = typer.Argument(..., help="CS001..CS013")) -> None:
 
 
 @app.command()
-def learn(rule_id: str = typer.Argument(..., help="CS001..CS009")) -> None:
+def learn(rule_id: str = typer.Argument(..., help=_RULE_ID_HELP)) -> None:
     """Answer the comprehension question and unlock the fix."""
     rid = rule_id.upper()
     question = QUESTIONS.get(rid)
