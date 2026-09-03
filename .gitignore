@@ -32,3 +32,7 @@ Data/CVEfixes.db
 CVEfixes*.zip
 _to_delete/
 CVEfixes-1.0.8/
+CVEfixes-1.0.8/
+CVEfixes*.zip
+CVEfixes_v*.zip
+*.sql.gz

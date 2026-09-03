@@ -32,9 +32,14 @@ from .triage import triage
 # Derived, never typed by hand. These help strings said "CS001..CS009" and
 # "CS001..CS013" long after there were seventeen classes: a hardcoded count is
 # a claim about coverage, and it goes stale the moment a rule is added.
-_RULE_ID_HELP = (f"one of the {len(COVERED)} rule ids, "
+#
+# It goes on the COMMAND help as well as the argument. typer does not render
+# Argument help at all against click 8.5 - the panel shows the type and
+# nothing else - so the argument alone would put the range where no user ever
+# sees it. The command help body renders on every click version we support.
+_RULE_ID_HELP = (f"RULE_ID is one of the {len(COVERED)} rule ids, "
                  f"{sorted(c[0] for c in COVERED)[0]}"
-                 f"..{sorted(c[0] for c in COVERED)[-1]}")
+                 f"..{sorted(c[0] for c in COVERED)[-1]}.")
 
 app = typer.Typer(
     add_completion=False,
@@ -305,7 +310,7 @@ def scan(
             raise typer.Exit(1)
 
 
-@app.command()
+@app.command(help=f"Explain one rule class without scanning anything. {_RULE_ID_HELP}")
 def explain(rule_id: str = typer.Argument(..., help=_RULE_ID_HELP)) -> None:
     """Explain one rule class without scanning anything."""
     rid = rule_id.upper()
@@ -336,7 +341,7 @@ def explain(rule_id: str = typer.Argument(..., help=_RULE_ID_HELP)) -> None:
         console.print(f"[dim]run:  cs learn {rid}[/dim]\n")
 
 
-@app.command()
+@app.command(help=f"Answer the comprehension question and unlock the fix. {_RULE_ID_HELP}")
 def learn(rule_id: str = typer.Argument(..., help=_RULE_ID_HELP)) -> None:
     """Answer the comprehension question and unlock the fix."""
     rid = rule_id.upper()

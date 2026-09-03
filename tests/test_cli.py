@@ -165,15 +165,27 @@ def test_help_does_not_hardcode_a_class_count():
     `learn` advertised CS001..CS009 and `explain` CS001..CS013 for weeks after
     there were seventeen classes. Nobody re-reads a help string when adding a
     rule, so the string has to be derived from the rule table.
+
+    Asserted against the derived constant and the rendered command help, not
+    against the argument panel: typer does not render Argument help at all
+    against click 8.5, so an assertion on that panel tests typer's version, not
+    ours.
     """
     from typer.testing import CliRunner
 
-    from codesentinel.cli import app
+    from codesentinel.cli import _RULE_ID_HELP, app
     from codesentinel.rules.engine import COVERED
 
+    ids = sorted(c[0] for c in COVERED)
+    assert str(len(COVERED)) in _RULE_ID_HELP
+    assert ids[0] in _RULE_ID_HELP and ids[-1] in _RULE_ID_HELP
+    assert "CS009" not in _RULE_ID_HELP or ids[-1] == "CS009"
+    assert "CS013" not in _RULE_ID_HELP or ids[-1] == "CS013"
+
+    # And it has to reach a user, not just exist.
     runner = CliRunner()
     for command in ("explain", "learn"):
         out = runner.invoke(app, [command, "--help"]).output
-        assert str(len(COVERED)) in out, f"{command} --help omits the class count: {out}"
-        assert "CS009" not in out or len(COVERED) == 9, out
-        assert "CS013" not in out or len(COVERED) == 13, out
+        # Rich wraps the help body, so compare on collapsed whitespace.
+        flat = " ".join(out.split())
+        assert " ".join(_RULE_ID_HELP.split()) in flat, f"{command} --help: {out}"

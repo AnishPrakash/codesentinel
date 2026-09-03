@@ -63,19 +63,33 @@ unzip -q 2017-10-01-juliet-test-suite-for-java-v1-3.zip -d juliet-java
 # --root is the directory containing src/testcases/CWE*
 ```
 
-**CVEfixes** — what Zenodo publishes is a **gzipped SQL dump, not a database
-file**. It has to be restored before the collector can open it:
+**CVEfixes** — two traps here, both of which cost time if you hit them live.
+
+*There are two Zenodo records.* `zenodo.org/records/13138703` is the **software**
+— 1.5 MB of collection scripts and docs, no data in it at all. The dataset is
+`zenodo.org/records/13118970` (DOI 10.5281/zenodo.4476563), and it is
+**12.7 GB**. Downloading the small one and looking for `Data/CVEfixes.sql.gz`
+inside finds nothing, because it was never there.
+
+*What you get is a gzipped SQL dump, not a database file.* It has to be
+restored before the collector can open it:
 
 ```bash
-# https://zenodo.org/records/13138703   (v1.0.8, DOI 10.5281/zenodo.4476563)
-unzip -q CVEfixes-1.0.8.zip
-gunzip -c Data/CVEfixes.sql.gz | sqlite3 Data/CVEfixes.db
-# or, from a clone of their repo:  sh Code/create_CVEfixes_from_dump.sh
-
-sqlite3 Data/CVEfixes.db ".tables"      # confirm it restored before going on
+# 12.7 GB. Budget for it.
+#   https://zenodo.org/records/13118970/files/CVEfixes_v1.0.8.zip
+unzip -q CVEfixes_v1.0.8.zip
+gunzip -c CVEfixes.sql.gz | sqlite3 CVEfixes.db     # path varies by archive layout
+sqlite3 CVEfixes.db ".tables"                        # confirm before going on
 ```
 
-The restore takes a while and the result is several GB.
+Their own `create_CVEfixes_from_dump.sh` looks in `Output/` while `INSTALL.md`
+says `Data/` — find the `.sql.gz` after unzipping rather than trusting either.
+The restored database is several GB.
+
+**If you are short on time, skip CVEfixes and run Juliet alone.** It is 73 MB,
+needs no restore, and moves classes out of `untrained` on its own. CVEfixes is
+the source that makes the numbers worth quoting, but it is a multi-hour errand
+before a single epoch runs.
 
 ```bash
 # 1. collect (each writes data/raw/*.jsonl)
