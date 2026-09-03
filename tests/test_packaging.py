@@ -104,3 +104,46 @@ def test_language_enum_and_cli_extensions_agree():
     from codesentinel.models import Language
     reachable = {detect_language(f"x{ext}") for ext in EXTENSIONS}
     assert set(Language) <= reachable
+
+
+def test_our_own_imports_survive_a_manifest_rebuild():
+    """scripts/build_manifests.py replaces the manifest with registry names.
+
+    A registry lists *distribution* names; CS006 sees *import* names. Usually
+    identical, sometimes not: `import llama_cpp` ships as `llama-cpp-python`,
+    and no hyphen/underscore normalisation bridges that. The script carries an
+    alias seed for exactly this. If a dependency is added without an alias, a
+    rebuild would make the scanner report our own source - so pin it here.
+    """
+    import sys as _sys
+    from importlib.metadata import packages_distributions
+
+    _sys.path.insert(0, str(ROOT / "scripts"))
+    from build_manifests import PY_ALIASES
+
+    from codesentinel.deps.firewall import _variants
+
+    seed = {a.lower() for a in PY_ALIASES}
+    stdlib = set(_sys.stdlib_module_names)
+    dists = packages_distributions()          # import name -> [distribution names]
+
+    unseeded = []
+    for mod in _imported():
+        if mod in stdlib or mod == "codesentinel":
+            continue
+        installed = {d.lower() for d in dists.get(mod, [])}
+        if not installed:
+            # not importable here (an optional extra like llama_cpp); it must be
+            # seeded, because we cannot prove the registry name matches.
+            if not (_variants(mod) & seed):
+                unseeded.append(mod)
+            continue
+        # A registry dump contains the distribution name. If simple hyphen or
+        # underscore normalisation reaches it, no alias is needed.
+        if not (_variants(mod) & installed) and not (_variants(mod) & seed):
+            unseeded.append(mod)
+
+    assert sorted(unseeded) == [], (
+        "these imports would vanish from the manifest on a rebuild; add them to "
+        f"PY_ALIASES in scripts/build_manifests.py: {sorted(unseeded)}"
+    )
