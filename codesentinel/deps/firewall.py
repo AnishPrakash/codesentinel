@@ -10,6 +10,7 @@ from tree_sitter import Node
 
 from ..models import Finding, Language, Severity
 from ..parser import ParsedSource, walk
+from .aliases import distributions_for
 from .manifest import known_packages
 
 JS_STDLIB = {"fs", "path", "http", "https", "crypto", "os", "util", "events",
@@ -45,10 +46,22 @@ def _is_stdlib(pkg: str, language: Language) -> bool:
 
 
 def _variants(name: str) -> set[str]:
-    """PyPI and npm both treat _ and - as interchangeable in practice; the import
-    name and the distribution name often differ by exactly that character."""
+    """Every spelling under which this import could legitimately appear.
+
+    Three layers, in increasing specificity:
+      1. the name itself
+      2. hyphen/underscore normalisation - `tree_sitter_java` is published as
+         `tree-sitter-java`, and registries treat the two as one name
+      3. the alias table, for the cases no rule reaches: `cv2` is published as
+         `opencv-python`, `yaml` as `pyyaml`
+
+    Layer 3 is not a nicety. Without it the firewall reports `import yaml` as an
+    unrecognised dependency, which is the most common non-stdlib import there is.
+    """
     low = name.lower()
-    return {low, low.replace("_", "-"), low.replace("-", "_")}
+    out = {low, low.replace("_", "-"), low.replace("-", "_")}
+    out |= distributions_for(name)
+    return out
 
 
 def _is_local_module(pkg: str, local_root: Path | None) -> bool:

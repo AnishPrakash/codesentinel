@@ -225,6 +225,16 @@ where they produced false positives:
 `test_codesentinel_is_clean_on_its_own_source` now runs the whole rule set over
 the whole package in CI. Dogfooding as a test rather than as a habit.
 
+A fifth, found later and worse than the other four: **CS006 flagged `import
+yaml`**. A manifest lists what a registry publishes (`pyyaml`); code writes what
+it imports (`yaml`). Hyphen and underscore normalisation bridges
+`tree_sitter_java` to `tree-sitter-java` and nothing else, so `cv2`, `sklearn`,
+`bs4`, `jwt`, `PIL`, `dateutil` and eleven more of the most common imports in
+Python were all reported as possible slopsquats. `codesentinel/deps/aliases.py`
+is now the single table both the firewall and the manifest builder read, so the
+two cannot drift, and a self-consistency test rejects an alias pointing at a
+distribution the manifest does not contain.
+
 ---
 
 ## What is not built

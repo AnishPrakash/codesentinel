@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from codesentinel.models import Language, Tier
 from codesentinel.parser import parse
 from codesentinel.rules.engine import run_rules
@@ -112,3 +114,64 @@ def test_nested_expressions_are_not_reported_twice():
           "});\n")
     sql = [f for f in run_rules(parse(js, Language.JAVASCRIPT)) if f.rule_id == "CS002"]
     assert len(sql) == 1
+
+
+# --------------------- CS006 precision: import name vs distribution name ------
+
+COMMON_ALIASED_IMPORTS = [
+    "yaml",       # pyyaml
+    "cv2",        # opencv-python
+    "PIL",        # pillow
+    "sklearn",    # scikit-learn
+    "bs4",        # beautifulsoup4
+    "dateutil",   # python-dateutil
+    "dotenv",     # python-dotenv
+    "jwt",        # pyjwt
+    "serial",     # pyserial
+    "attr",       # attrs
+    "docx",       # python-docx
+    "fitz",       # pymupdf
+    "OpenSSL",    # pyopenssl
+    "Crypto",     # pycryptodome
+    "psycopg2",   # psycopg2-binary
+    "MySQLdb",    # mysqlclient
+    "nacl",       # pynacl
+]
+
+
+@pytest.mark.parametrize("module", COMMON_ALIASED_IMPORTS)
+def test_cs006_does_not_flag_a_common_aliased_import(module):
+    """The manifest holds distribution names; the code writes import names.
+
+    `import yaml` comes from the distribution `pyyaml`, and no hyphen or
+    underscore rule bridges that. Before codesentinel/deps/aliases.py existed,
+    every module in this list was reported as a possible slopsquat - including
+    the most common non-stdlib import in Python.
+    """
+    findings = run_rules(parse(f"import {module}\n", Language.PYTHON))
+    assert [f for f in findings if f.rule_id == "CS006"] == []
+
+
+@pytest.mark.parametrize("module", ["reqeusts", "beautifulsoup", "pdfkit_lite"])
+def test_cs006_still_catches_a_slopsquat(module):
+    """The aliases must not have made the firewall permissive in general."""
+    findings = run_rules(parse(f"import {module}\n", Language.PYTHON))
+    assert [f for f in findings if f.rule_id == "CS006"], f"{module} went unflagged"
+
+
+def test_alias_table_is_self_consistent():
+    """Every distribution name in the table should be in the manifest, or the
+    alias points at something the firewall still cannot resolve."""
+    from codesentinel.deps.aliases import IMPORT_TO_DISTRIBUTION
+    from codesentinel.deps.manifest import known_packages
+    manifest = known_packages(Language.PYTHON)
+    missing = sorted(
+        f"{imp} -> {dist}"
+        for imp, dists in IMPORT_TO_DISTRIBUTION.items()
+        for dist in dists
+        if dist.lower() not in manifest
+    )
+    assert missing == [], (
+        "alias targets absent from the manifest (add them to the manifest, or "
+        f"drop the alias): {missing}"
+    )

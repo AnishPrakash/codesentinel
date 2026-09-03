@@ -118,12 +118,10 @@ def test_our_own_imports_survive_a_manifest_rebuild():
     import sys as _sys
     from importlib.metadata import packages_distributions
 
-    _sys.path.insert(0, str(ROOT / "scripts"))
-    from build_manifests import PY_ALIASES
-
+    from codesentinel.deps.aliases import ALL_KNOWN_SPELLINGS
     from codesentinel.deps.firewall import _variants
 
-    seed = {a.lower() for a in PY_ALIASES}
+    seed = {a.lower() for a in ALL_KNOWN_SPELLINGS}
     stdlib = set(_sys.stdlib_module_names)
     dists = packages_distributions()          # import name -> [distribution names]
 
@@ -145,5 +143,5 @@ def test_our_own_imports_survive_a_manifest_rebuild():
 
     assert sorted(unseeded) == [], (
         "these imports would vanish from the manifest on a rebuild; add them to "
-        f"PY_ALIASES in scripts/build_manifests.py: {sorted(unseeded)}"
+        f"IMPORT_TO_DISTRIBUTION in codesentinel/deps/aliases.py: {sorted(unseeded)}"
     )

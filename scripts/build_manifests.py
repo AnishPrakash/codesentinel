@@ -19,12 +19,14 @@ import argparse
 import sys
 from pathlib import Path
 
-try:
-    import httpx
-except ImportError:                                     # noqa: BLE001
-    sys.exit("This script needs httpx:  pip install httpx")
+# httpx is imported inside the functions that need it, never at module scope.
+# A module that exits the interpreter when imported is hostile to every
+# consumer - including the test that reads the alias table out of this file,
+# which is exactly how this broke CI once.
 
-OUT = Path(__file__).resolve().parent.parent / "codesentinel" / "data" / "manifests"
+ROOT = Path(__file__).resolve().parent.parent
+OUT = ROOT / "codesentinel" / "data" / "manifests"
+sys.path.insert(0, str(ROOT))
 
 HEADER = (
     "# Offline {registry} manifest.\n"
@@ -32,33 +34,13 @@ HEADER = (
     "# A scan never touches the network - this file is why.\n"
 )
 
-# Import names that do not equal their distribution name, so a registry dump
-# alone would not contain them. Anything CodeSentinel itself imports MUST be
-# here, or the scanner reports its own source as an unrecognised dependency and
-# tests/test_new_classes.py::test_codesentinel_is_clean_on_its_own_source fails.
-PY_ALIASES = {
-    "llama_cpp", "llama-cpp-python",          # import llama_cpp
-    "tree_sitter", "tree_sitter_python", "tree_sitter_javascript", "tree_sitter_java",
-    "yaml", "pyyaml",                          # import yaml
-    "cv2", "opencv-python",                    # import cv2
-    "PIL", "pillow",                           # import PIL
-    "sklearn", "scikit-learn",
-    "bs4", "beautifulsoup4",
-    "dateutil", "python-dateutil",
-    "dotenv", "python-dotenv",
-    "jwt", "pyjwt",
-    "serial", "pyserial",
-    "OpenSSL", "pyopenssl",
-    "Crypto", "pycryptodome",
-    "google", "googleapis-common-protos",
-    "attr", "attrs",
-    "docx", "python-docx",
-    "pptx", "python-pptx",
-    "fitz", "pymupdf",
-    "magic", "python-magic",
-    "usb", "pyusb",
-    "win32com", "pywin32",
-}
+# The alias table is package data, not script data: the firewall reads it at
+# scan time so `import yaml` is not reported as an unrecognised dependency, and
+# this script reads the same table so a rebuild cannot drop it. One source, so
+# the two cannot drift apart.
+from codesentinel.deps.aliases import ALL_KNOWN_SPELLINGS   # noqa: E402
+
+PY_ALIASES = ALL_KNOWN_SPELLINGS
 
 JS_ALIASES: set[str] = set()
 
@@ -80,6 +62,8 @@ def _write(path: Path, registry: str, names: set[str]) -> None:
 
 
 def pypi(n: int, merge: bool) -> None:
+    import httpx
+
     url = "https://hugovk.github.io/top-pypi-packages/top-pypi-packages.min.json"
     rows = httpx.get(url, timeout=60).json()["rows"][:n]
     names = {r["project"].lower() for r in rows}
@@ -91,6 +75,8 @@ def pypi(n: int, merge: bool) -> None:
 
 
 def npm(n: int, merge: bool) -> None:
+    import httpx
+
     names: set[str] = set()
     with httpx.Client(timeout=60) as c:
         for offset in range(0, n, 250):
@@ -113,6 +99,11 @@ def npm(n: int, merge: bool) -> None:
 
 
 def main() -> None:
+    try:
+        import httpx                                    # noqa: F401
+    except ImportError:
+        raise SystemExit("This script needs httpx:  pip install httpx") from None
+
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--replace", action="store_true",
                     help="Discard the committed list instead of merging into it.")

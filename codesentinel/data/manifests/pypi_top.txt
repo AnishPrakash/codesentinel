@@ -141,6 +141,7 @@ crontab
 cryptography
 cssselect
 cssutils
+cupy
 cx-oracle
 cybox
 cycler
@@ -390,6 +391,7 @@ langsmith
 lark
 lazy-loader
 lazy-object-proxy
+levenshtein
 libclang
 libcst
 lightgbm
@@ -481,7 +483,9 @@ onnxruntime
 openai
 openai-whisper
 opencensus
+opencv-contrib-python
 opencv-python
+opencv-python-headless
 openpyxl
 openpyxl-stubs
 opensearch-py
@@ -639,8 +643,10 @@ python-engineio
 python-gitlab
 python-jose
 python-json-logger
+python-ldap
 python-levenshtein
 python-magic
+python-memcached
 python-multipart
 python-pptx
 python-slugify
@@ -653,6 +659,7 @@ pytz
 pyusb
 pyvis
 pywavelets
+pywin32
 pyxdg
 pyyaml
 pyzmq
@@ -690,6 +697,7 @@ rsa
 rsa-alt
 ruamel-yaml
 ruamel-yaml-clib
+ruamel.yaml
 ruff
 s2sphere
 s3fs
@@ -841,6 +849,7 @@ virtualenv
 virtualenv-clone
 visitor
 voluptuous
+wand
 wandb
 watchdog
 watchfiles
@@ -875,6 +884,7 @@ xxhash
 yapf
 yarl
 yaspin
+yattag
 youtube-dl
 yt-dlp
 zeep
