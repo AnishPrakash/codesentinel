@@ -6,10 +6,14 @@ build/
 dist/
 .pytest_cache/
 .ruff_cache/
-*.onnx
+# The trained model is ~2 KB, not the multi-MB binary the original
+# rule assumed, so it is committed rather than fetched from a release.
+!models/triage.onnx
+!models/feature_scaler.json
 !models/.gitkeep
 data/raw/
 data/processed/
+data/sources/
 *.db
 report.md
 

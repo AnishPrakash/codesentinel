@@ -117,12 +117,19 @@ def _render_file(result: ScanResult, show_fix: bool) -> None:
 
     for f in findings:
         style = SEV_STYLE[f.severity]
-        conf = f"  -  confidence {f.confidence:.2f}" if f.confidence < 1.0 else ""
+        # The model's score is deliberately NOT printed beside a finding. It
+        # measures how much this file resembles the training corpus, and it is
+        # used only to order findings within a severity band. Printing "0.00"
+        # next to a CRITICAL reads as "the tool is 0% sure this is real", which
+        # is the exact misreading the two-tier design exists to prevent - the
+        # rule is certain, and the model was asked a different question. The
+        # score stays in --format json, where it is data rather than a claim,
+        # and the model speaks for itself in the needs-review panel below.
         console.print(
             f"  [{style}]{f.severity.label.upper():8s}[/{style}] "
             f"[bold]{f.title}[/bold]\n"
             f"           [dim]line {f.line} | {f.rule_id} | {f.cwe} | "
-            f"{f.owasp.split('-')[0].strip()}{conf}[/dim]"
+            f"{f.owasp.split('-')[0].strip()}[/dim]"
         )
         console.print(f"           [dim]{f.snippet}[/dim]")
         console.print(f"           {f.explanation}", highlight=False)

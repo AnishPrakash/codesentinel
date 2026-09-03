@@ -30,7 +30,7 @@ def triage(parsed: ParsedSource,
         return findings, None
 
     features = extract_features(parsed, set(known_packages(parsed.language)))
-    scores = model.predict(features)
+    scores = model.predict(features, language=parsed.language.value)
     if scores is None:
         return findings, None
 

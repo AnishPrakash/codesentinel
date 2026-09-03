@@ -83,3 +83,57 @@ def test_prediction_note_never_names_a_vulnerability():
     note = Prediction(score=0.9).note
     assert "CWE" not in note
     assert "SQL" not in note
+
+
+# ------------- what the model is allowed to say, and where it may say it -----
+
+def test_a_model_score_is_never_printed_beside_a_finding():
+    """`confidence 0.00` next to a CRITICAL reads as "we are 0% sure this is
+    real". The rule is certain; the model was asked a different question -
+    whether the file resembles its training corpus. Mixing the two in one line
+    is the UI form of letting a probability become a claim."""
+    from typer.testing import CliRunner
+
+    from codesentinel.cli import app
+    r = CliRunner().invoke(app, ["scan", str(FIX / "vulnerable" / "flask_app.py"),
+                                 "--no-ledger"])
+    assert "confidence" not in r.stdout.lower()
+
+
+def test_the_score_is_still_available_as_json():
+    """It is data for a consumer, just not a claim in the terminal."""
+    import json as _json
+
+    from typer.testing import CliRunner
+
+    from codesentinel.cli import app
+    r = CliRunner().invoke(app, ["scan", str(FIX / "vulnerable" / "flask_app.py"),
+                                 "--no-ledger", "-f", "json"])
+    body = _json.loads(r.stdout)
+    assert all("confidence" in f for f in body["files"][0]["findings"])
+
+
+def test_model_declines_a_language_it_was_not_trained_on():
+    """A model trained only on Java has no basis for an opinion about Python,
+    and 0.02 is indistinguishable from a considered judgement once printed."""
+    from codesentinel.triage.model import TriageModel
+
+    m = TriageModel()
+    if not m.ready:
+        pytest.skip("no model installed")
+    if m.languages and "python" not in m.languages:
+        assert m.predict([0.0] * 52, language="python") is None
+    assert m.covers("nonexistent-language") is False
+
+
+def test_model_declines_a_vector_outside_its_training_range():
+    """Min-max scaling clamps silently, so without this guard the model is
+    asked about vectors it has never seen and answers anyway."""
+    from codesentinel.triage.model import TriageModel
+
+    m = TriageModel()
+    if not m.ready:
+        pytest.skip("no model installed")
+    absurd = [1e9] * 52
+    lang = next(iter(m.languages)) if m.languages else None
+    assert m.predict(absurd, language=lang) is None

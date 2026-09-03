@@ -229,12 +229,35 @@ wants you to do.
 
 ---
 
-## Not built here
+## The triage model
 
-Two pieces are documented but deliberately not in this repo: the dataset
-pipeline (`09-DATASETS.md`) and the Kaggle training notebook
-(`10-KAGGLE-TRAINING.md`). The triage model they produce is optional; the tool
-is complete without it.
+Optional in the strongest sense: delete `models/` and everything still works,
+asserted by `test_works_without_model`. It ranks findings within a severity
+band and raises a *needs review* hint when it scores a class highly and no rule
+fired. It never creates a finding and never names a CWE.
+
+```bash
+python scripts/dataset/collect_owasp_benchmark.py --clone
+python scripts/build_dataset.py
+python scripts/train_triage.py
+cs version                      # -> triage model: loaded
+```
+
+`notebooks/train_triage.ipynb` runs the same scripts on Kaggle with Juliet and
+CVEfixes attached. **Read [`docs/DATASETS.md`](docs/DATASETS.md) before quoting
+a number from it** - the shipped model is trained on OWASP Benchmark only, which
+covers 6 of 13 classes and is generated code rather than code anyone shipped.
+
+Reference run, group-split, OWASP Benchmark only: **macro F1 0.772 across the
+three classes with at least 30 held-out samples** (CS003 0.71, CS004 0.86,
+CS007 0.74). Seven classes had no data at all and are *unmeasured*, not
+zero-performing. That is a working pipeline, not a validated model.
+
+The model refuses to answer twice over, and both refusals are the point: it
+declines a language absent from its training set, and it declines a feature
+vector outside the range it was trained on. A model trained only on Java has no
+basis for an opinion about Python, and emitting 0.02 is worse than emitting
+nothing.
 
 ---
 

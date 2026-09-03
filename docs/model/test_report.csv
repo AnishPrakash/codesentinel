@@ -1,0 +1,14 @@
+class,support,precision,recall,f1,average_precision,threshold,status
+CS001,0,,,,,0.5,untrained
+CS002,21,0.438,1.0,0.609,0.793,0.4,too few samples
+CS003,35,0.556,1.0,0.714,0.648,0.85,ok
+CS004,88,0.832,0.898,0.863,0.97,0.65,ok
+CS005,0,,,,,0.5,untrained
+CS006,0,,,,,0.5,untrained
+CS007,59,0.634,0.881,0.738,0.721,0.9,ok
+CS008,24,0.478,0.917,0.629,0.673,0.85,too few samples
+CS009,8,0.7,0.875,0.778,0.649,0.75,too few samples
+CS014,0,,,,,0.5,untrained
+CS015,0,,,,,0.5,untrained
+CS016,0,,,,,0.5,untrained
+CS017,0,,,,,0.5,untrained
