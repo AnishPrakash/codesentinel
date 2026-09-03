@@ -4,7 +4,12 @@ import { learn } from './commands/learn';
 import { scanFile } from './commands/scanFile';
 import { scanWorkspace } from './commands/scanWorkspace';
 import { showProgress } from './commands/showProgress';
-import { clearDecorations, disposeDecorations } from './decorations';
+import {
+  clearDecorations,
+  disposeDecorations,
+  forgetDecorations,
+  refreshDecorations,
+} from './decorations';
 import { COLLECTION_NAME } from './diagnostics';
 import { checkAvailable } from './scanner';
 import { SidebarProvider } from './sidebar/SidebarProvider';
@@ -39,7 +44,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       collection.clear();
       sidebar.clear();
       vscode.window.visibleTextEditors.forEach(clearDecorations);
+      forgetDecorations();
       status.text = '$(shield) CodeSentinel';
+    }),
+    vscode.commands.registerCommand('codesentinel.toggleInlineMessages', async () => {
+      const c = vscode.workspace.getConfiguration('codesentinel');
+      const next = c.get<string>('inlineMessage', 'auto') === 'off' ? 'on' : 'off';
+      await c.update('inlineMessage', next, vscode.ConfigurationTarget.Global);
+      // The configuration listener repaints; this only reports.
+      vscode.window.setStatusBarMessage(
+        `CodeSentinel inline messages: ${next}`,
+        3000
+      );
     }),
     vscode.commands.registerCommand('codesentinel.learn', () => learn()),
     vscode.commands.registerCommand('codesentinel.showProgress', () => showProgress()),
@@ -51,7 +67,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
 
-    vscode.workspace.onDidCloseTextDocument((doc) => collection.delete(doc.uri))
+    vscode.workspace.onDidCloseTextDocument((doc) => collection.delete(doc.uri)),
+
+    // Decorations live on an editor, not a document, so switching tabs loses
+    // them. Repaint from the last scan rather than spawning Python again.
+    vscode.window.onDidChangeVisibleTextEditors(() => refreshDecorations()),
+
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (
+        e.affectsConfiguration('codesentinel') ||
+        e.affectsConfiguration('errorLens.enabled')
+      ) {
+        refreshDecorations();
+      }
+    })
   );
 
   // Availability is checked once, in the background, and reported as a message

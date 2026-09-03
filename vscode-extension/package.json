@@ -57,6 +57,10 @@
         "title": "CodeSentinel: Show Learning Progress"
       },
       {
+        "command": "codesentinel.toggleInlineMessages",
+        "title": "CodeSentinel: Toggle Inline Messages"
+      },
+      {
         "command": "codesentinel.showOutput",
         "title": "CodeSentinel: Show Log"
       }
@@ -107,6 +111,28 @@
           "default": true,
           "description": "Highlight lines with findings in the editor."
         },
+        "codesentinel.inlineMessage": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "on",
+            "off"
+          ],
+          "enumDescriptions": [
+            "Show CodeSentinel's own inline message unless Error Lens is installed and enabled, in which case leave the line to Error Lens.",
+            "Always show CodeSentinel's own inline message.",
+            "Never show it. Findings still appear as squiggles, in the Problems panel and on hover."
+          ],
+          "default": "auto",
+          "description": "Render a one-line summary of each finding at the end of the line. The full explanation, the attack and the fix stay on hover - a line of code is no place for four paragraphs."
+        },
+        "codesentinel.inlineMessageMaxLength": {
+          "type": "number",
+          "default": 100,
+          "minimum": 24,
+          "maximum": 400,
+          "description": "Longest inline message before the title is shortened. The severity and the rule id are never cut."
+        },
         "codesentinel.timeoutMs": {
           "type": "number",
           "default": 30000,
@@ -134,7 +160,8 @@
     "watch": "node esbuild.js --watch",
     "typecheck": "tsc -p ./ --noEmit",
     "verify-bridge": "node scripts/verify-bridge.js",
-    "package": "npx @vscode/vsce package"
+    "package": "npx @vscode/vsce package",
+    "verify-inline": "node scripts/verify-inline.js"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
