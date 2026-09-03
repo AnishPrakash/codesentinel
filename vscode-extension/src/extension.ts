@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { learn } from './commands/learn';
-import { scanFile } from './commands/scanFile';
+import { scanFile, showFile } from './commands/scanFile';
 import { scanWorkspace } from './commands/scanWorkspace';
 import { showProgress } from './commands/showProgress';
 import {
@@ -15,6 +15,7 @@ import { checkAvailable } from './scanner';
 import { SidebarProvider } from './sidebar/SidebarProvider';
 import { getSettings, isSupported } from './utils/config';
 import { logger } from './utils/logger';
+import { clearCache, forget } from './utils/scanCache';
 
 let collection: vscode.DiagnosticCollection;
 let sidebar: SidebarProvider;
@@ -57,6 +58,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       sidebar.clear();
       vscode.window.visibleTextEditors.forEach(clearDecorations);
       forgetDecorations();
+      clearCache();
       status.text = '$(shield) CodeSentinel';
     }),
     vscode.commands.registerCommand('codesentinel.toggleInlineMessages', async () => {
@@ -79,7 +81,19 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       }
     }),
 
-    vscode.workspace.onDidCloseTextDocument((doc) => collection.delete(doc.uri)),
+    // Becoming the active editor is a reason to scan. Without this the only
+    // scanned file is whichever one happened to be open at startup, and every
+    // other file in the project reads as clean rather than as unexamined.
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor) {
+        void showFile(collection, sidebar, status, editor.document);
+      }
+    }),
+
+    vscode.workspace.onDidCloseTextDocument((doc) => {
+      collection.delete(doc.uri);
+      forget(doc);
+    }),
 
     // Decorations live on an editor, not a document, so switching tabs loses
     // them. Repaint from the last scan rather than spawning Python again.
@@ -113,7 +127,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const active = vscode.window.activeTextEditor?.document;
   if (active && isSupported(active)) {
-    void scanFile(collection, sidebar, status, active, true);
+    void showFile(collection, sidebar, status, active);
   }
 }
 
