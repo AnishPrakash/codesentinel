@@ -1,7 +1,17 @@
+# Everything that is not needed to run the extension.
+#
+# The bundle is a single file; shipping the sources, the build script and the
+# verification scripts inside the .vsix just makes the download bigger and
+# invites someone to run a dev script from an installed extension directory.
 .vscode/**
+.eslintrc.json
 src/**
+scripts/**
 node_modules/**
+esbuild.js
 tsconfig.json
+package-lock.json
 **/*.map
 **/*.ts
+*.vsix
 !out/**/*.js

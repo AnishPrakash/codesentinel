@@ -2,7 +2,7 @@
   "name": "codesentinel",
   "displayName": "CodeSentinel",
   "description": "Local-first code security review with plain-language explanations and a comprehension gate.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "publisher": "anishprakash",
   "license": "MIT",
   "repository": {

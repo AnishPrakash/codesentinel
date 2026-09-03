@@ -52,12 +52,39 @@ run only one source, run this one.
 
 ## Running it
 
+### Getting the two archives
+
+**Juliet 1.3 for Java** — one zip, no account, public domain
+([suite page](https://samate.nist.gov/SARD/test-suites/111)), 73 MB, 28,881 cases:
+
+```bash
+curl -LO https://samate.nist.gov/SARD/downloads/test-suites/2017-10-01-juliet-test-suite-for-java-v1-3.zip
+unzip -q 2017-10-01-juliet-test-suite-for-java-v1-3.zip -d juliet-java
+# --root is the directory containing src/testcases/CWE*
+```
+
+**CVEfixes** — what Zenodo publishes is a **gzipped SQL dump, not a database
+file**. It has to be restored before the collector can open it:
+
+```bash
+# https://zenodo.org/records/13138703   (v1.0.8, DOI 10.5281/zenodo.4476563)
+unzip -q CVEfixes-1.0.8.zip
+gunzip -c Data/CVEfixes.sql.gz | sqlite3 Data/CVEfixes.db
+# or, from a clone of their repo:  sh Code/create_CVEfixes_from_dump.sh
+
+sqlite3 Data/CVEfixes.db ".tables"      # confirm it restored before going on
+```
+
+The restore takes a while and the result is several GB.
+
 ```bash
 # 1. collect (each writes data/raw/*.jsonl)
 python scripts/dataset/collect_owasp_benchmark.py --clone
-python scripts/dataset/collect_juliet.py  --root  /path/to/juliet --limit 200   # smoke first
-python scripts/dataset/collect_cvefixes.py --db   /path/to/CVEfixes.db --inspect
-python scripts/dataset/collect_cvefixes.py --db   /path/to/CVEfixes.db --limit 200
+python scripts/dataset/collect_juliet.py  --root  juliet-java --limit 200      # smoke first
+python scripts/dataset/collect_juliet.py  --root  juliet-java
+python scripts/dataset/collect_cvefixes.py --db   Data/CVEfixes.db --inspect   # schema first
+python scripts/dataset/collect_cvefixes.py --db   Data/CVEfixes.db --limit 200
+python scripts/dataset/collect_cvefixes.py --db   Data/CVEfixes.db
 
 # 2. features + labels -> data/processed/dataset.csv
 python scripts/build_dataset.py
