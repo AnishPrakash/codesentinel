@@ -132,3 +132,28 @@ def test_explain_known_rule():
     r = runner.invoke(app, ["explain", "CS002"])
     assert r.exit_code == 0
     assert "CWE-89" in r.stdout
+
+
+def test_help_renders_for_every_command():
+    """`--help` must not traceback.
+
+    typer 0.15 against click 8.3 raised
+    `Parameter.make_metavar() missing 1 required positional argument: 'ctx'`
+    on every help screen. Nothing else in the suite touched help rendering, so
+    the whole test suite passed while the first command a new user types was
+    broken. Help is part of the interface.
+    """
+    from typer.testing import CliRunner
+
+    from codesentinel.cli import app
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["--help"])
+    assert result.exit_code == 0, result.output
+    assert "Usage:" in result.output
+
+    for command in ("scan", "explain", "learn", "rules", "progress",
+                    "history", "install-hook", "install-model", "version"):
+        result = runner.invoke(app, [command, "--help"])
+        assert result.exit_code == 0, f"{command} --help: {result.output}"
+        assert "Usage:" in result.output, command

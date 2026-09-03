@@ -24,3 +24,11 @@ vscode-extension/*.vsix
 
 # Per-developer interpreter path - see settings.json.example
 vscode-extension/.vscode/settings.json
+
+# Training corpora - large, and not ours to redistribute
+juliet-java/
+*juliet-test-suite*.zip
+Data/CVEfixes.db
+CVEfixes*.zip
+_to_delete/
+CVEfixes-1.0.8/
