@@ -1,6 +1,9 @@
 # Offline npm manifest.
-# Curated list of widely-used packages, shipped so a scan never needs the
-# network. Rebuild from the live registry with scripts/build_manifests.py.
+# Rebuilt by scripts/build_manifests.py, merged with the curated seed below.
+# A scan never touches the network - this file is why.
+@8base/boost
+@ably/spaces
+@agentaai/nextstepjs
 @angular/common
 @angular/core
 @ant-design/icons
@@ -16,6 +19,7 @@
 @babel/runtime
 @chakra-ui/react
 @clerk/nextjs
+@doodle3d/clipper-lib
 @emotion/react
 @faker-js/faker
 @google-cloud/storage
@@ -28,6 +32,7 @@
 @nestjs/config
 @nestjs/core
 @nestjs/jwt
+@ngneat/falso
 @octokit/rest
 @playwright/test
 @radix-ui/react-dialog
@@ -53,6 +58,7 @@
 @typescript-eslint/parser
 @vitejs/plugin-react
 @vue/compiler-sfc
+@xterm/addon-ligatures
 adm-zip
 agenda
 ajv
@@ -61,6 +67,8 @@ amqplib
 angular
 ansi-colors
 antd
+apollo-boost
+apollo-boost-upload
 apollo-client
 apollo-server
 archiver
@@ -78,7 +86,9 @@ better-sqlite3
 bluebird
 body-parser
 bookshelf
+boost-geospatial-index
 boxen
+buffer-more-ints
 bull
 bull-board
 bunyan
@@ -92,9 +102,11 @@ cheerio
 chokidar
 class-transformer
 class-validator
+claude-skills-library
 cli-progress
 cli-table3
 clone-deep
+coincident
 colors
 commander
 commitizen
@@ -108,6 +120,7 @@ cookie
 cookie-parser
 cookie-session
 cors
+creem
 cron
 cross-env
 cross-fetch
@@ -117,7 +130,9 @@ csurf
 csv-parse
 csv-stringify
 cypress
+cypress-ajv-schema-validator
 d3
+d3-geo-voronoi
 date-fns
 date-fns-tz
 dayjs
@@ -125,6 +140,7 @@ debug
 deep-equal
 defaults
 delay
+docusaurus-plugin-typedoc-api
 dompurify
 dotenv
 dotenv-expand
@@ -152,6 +168,8 @@ express-session
 express-validator
 fast-csv
 fast-deep-equal
+fast-fnv1a
+fast-stable-stringify
 figlet
 filesize
 finalhandler
@@ -164,20 +182,28 @@ formik
 framer-motion
 fresh
 fs-extra
+gh
 glob
 gm
+gnomon
 google-auth-library
 googleapis
 got
 graphql
+graphql-deduplicator
 graphql-tag
+hanzi-writer-data
+haraka-plugin-known-senders
+hdr-histogram-js
 helmet
 helmet-csp
+highcharts
 highlight.js
 hpp
 html-pdf
 http-errors
 husky
+icheck
 image-size
 immer
 immer-reducer
@@ -185,6 +211,7 @@ immutable
 ini
 inquirer
 inquirer-autocomplete-prompt
+interval-arithmetic
 io-ts
 ioredis
 jest
@@ -201,6 +228,7 @@ kafkajs
 knex
 kue
 kysely
+laravel-mix-glob
 lerna
 less
 lint-staged
@@ -216,7 +244,10 @@ markdown-it
 marked
 massive
 memoizee
+memorystorage
 merge-options
+metaapi.cloud-metastats-sdk
+metaapi.cloud-sdk
 mime
 mime-types
 minimist
@@ -244,6 +275,8 @@ nconf
 next
 next-auth
 next-themes
+next-with-apollo
+nextstepjs
 nock
 node-cache
 node-cron
@@ -261,8 +294,12 @@ nx
 oauth2-server
 object-hash
 objection
+ogv
 on-finished
 open
+open-collaboration-protocol
+open-collaboration-yjs
+openapi-typescript
 opener
 ora
 otplib
@@ -297,6 +334,7 @@ pnpm
 postcss
 postmark
 prettier
+prettier-oxc-parser
 pretty-ms
 prisma
 prompts
@@ -313,12 +351,19 @@ ramda
 range-parser
 razorpay
 react
+react-addons-pure-render-mixin
+react-addons-shallow-compare
 react-datepicker
 react-dom
 react-dropzone
 react-helmet
 react-hook-form
 react-icons
+react-native-boost
+react-native-ts-authentication
+react-native-ts-idv
+react-native-video-cache
+react-native-webp-format
 react-redux
 react-router
 react-router-dom
@@ -337,6 +382,7 @@ request
 rimraf
 rollup
 rollup-plugin-node-resolve
+rollup-plugin-obfuscator
 runtypes
 rxjs
 sanitize-html
@@ -347,6 +393,8 @@ semver
 send
 sequelize
 serve-static
+serverless-offline
+shacl-engine
 sharp
 sharp-cli
 shelljs
@@ -354,11 +402,14 @@ signature
 sinon
 sinon-chai
 slonik
+sloppy-module-parser
+smart-context-hooks
 socket.io
 socket.io-client
 speakeasy
 sqlite3
 standard-version
+strapi-cache
 strip-ansi
 stripe
 stripe-node
@@ -372,6 +423,7 @@ svelte
 swc-loader
 swr
 tailwindcss
+talkjs
 tar-fs
 tauri
 testing-library
@@ -380,14 +432,17 @@ timeago.js
 toml
 ts-loader
 ts-node
+ts-scope-trimmer-plugin
 tslib
 tsup
 tsx
 turbo
 twilio
 type-is
+typelab
 typeorm
 typescript
+udsv
 unbuild
 underscore
 undici
@@ -395,6 +450,7 @@ unzipper
 use-debounce
 uuid
 validator
+virtual-scroll
 vite
 vite-plugin-vue
 vitest
@@ -408,7 +464,9 @@ webpack-dev-server
 winston
 ws
 xlsx
+xsd-assembler
 xss-clean
+xz-compat
 yaml
 yargs
 yup
