@@ -175,3 +175,73 @@ def test_alias_table_is_self_consistent():
         "alias targets absent from the manifest (add them to the manifest, or "
         f"drop the alias): {missing}"
     )
+
+
+# ------------- one rule id, several weaknesses: precise citation --------------
+
+@pytest.mark.parametrize("name,code,expected_cwe", [
+    ("debug",  'from flask import Flask\napp=Flask(1)\napp.run(debug=True)\n', "CWE-489"),
+    ("chmod",  'import os\nos.chmod("/srv/f", 0o777)\n',                       "CWE-732"),
+    ("cors",   'app.add_middleware(CORSMiddleware, allow_origins=["*"])\n',    "CWE-942"),
+])
+def test_cs009_cites_the_weakness_it_actually_found(name, code, expected_cwe):
+    """CS009 fires on wildcard CORS, on debug=True and on a world-writable
+    chmod. Those are three different weaknesses, and citing "Permissive
+    Cross-domain Policy" for a debug console is simply wrong - which is what it
+    did until a scan of the demo file made it obvious."""
+    found = [f for f in run_rules(parse(code, Language.PYTHON)) if f.rule_id == "CS009"]
+    assert found, f"CS009 did not fire on {name}"
+    assert found[0].cwe == expected_cwe
+
+
+def test_cs003_eval_is_code_injection_not_os_command_injection():
+    """eval() never reaches a shell. CWE-78 is about OS commands."""
+    found = [f for f in run_rules(parse("def f(s):\n    return eval(s)\n",
+                                        Language.PYTHON)) if f.rule_id == "CS003"]
+    assert found and found[0].cwe == "CWE-95"
+
+
+def test_cs003_shell_true_is_still_os_command_injection():
+    code = 'import subprocess\ndef f(x):\n    subprocess.run("ls "+x, shell=True)\n'
+    found = [f for f in run_rules(parse(code, Language.PYTHON)) if f.rule_id == "CS003"]
+    assert found and found[0].cwe == "CWE-78"
+
+
+def test_cs004_weak_prng_has_its_own_cwe():
+    code = "import random\ndef t():\n    password = random.randint(0, 9)\n    return password\n"
+    found = [f for f in run_rules(parse(code, Language.PYTHON)) if f.rule_id == "CS004"]
+    assert found and found[0].cwe == "CWE-338"
+
+
+def test_cs004_broken_hash_keeps_the_rule_default():
+    code = "import hashlib\ndef h(d):\n    return hashlib.md5(d)\n"
+    found = [f for f in run_rules(parse(code, Language.PYTHON)) if f.rule_id == "CS004"]
+    assert found and found[0].cwe == "CWE-327"
+
+
+def test_every_cwe_a_matcher_can_emit_is_in_the_grounding_data():
+    """A specialised citation with no entry in cwe.json renders as a bare
+    number with no description - worse than the imprecise default it replaced."""
+    from codesentinel.explain.templates import cwe_data
+    known = cwe_data()
+    samples = [
+        ('from flask import Flask\napp=Flask(1)\napp.run(debug=True)\n', Language.PYTHON),
+        ('import os\nos.chmod("/f", 0o777)\n', Language.PYTHON),
+        ('def f(s):\n    return eval(s)\n', Language.PYTHON),
+        ("import random\ndef t():\n    password=random.randint(0,9)\n    return password\n",
+         Language.PYTHON),
+        ("const password=1; function t(){ return Math.random(); }", Language.JAVASCRIPT),
+        ("function f(s){ return eval(s); }", Language.JAVASCRIPT),
+    ]
+    for code, lang in samples:
+        for f in run_rules(parse(code, lang)):
+            assert f.cwe in known, f"{f.cwe} is cited but absent from cwe.json"
+
+
+def test_coverage_statement_reads_well_when_a_language_has_no_advisories():
+    """"0 advisory heuristics ()" is how a coverage statement stops being read."""
+    from codesentinel.rules.engine import coverage_statement
+    java = coverage_statement(Language.JAVA)
+    assert "()" not in java
+    assert "no advisory heuristics" in java
+    assert "advisory heuristics (" in coverage_statement(Language.PYTHON)

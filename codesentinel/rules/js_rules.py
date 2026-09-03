@@ -60,7 +60,8 @@ def match_command_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
             if "${" in text or re.search(r'["\']\s*\+', text):
                 yield node, "a shell command is assembled from a variable and executed"
         elif re.search(r"(?i)\beval\s*\(", text):
-            yield node, "eval() executes a constructed string as code"
+            yield (node, "eval() executes a constructed string as code",
+                   "CWE-95", "A03:2021 - Injection")
 
 
 def match_weak_crypto_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
@@ -72,8 +73,9 @@ def match_weak_crypto_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
         if m:
             yield node, f"{m.group(1).upper()} is used, which is broken for any security purpose"
         elif re.search(r"\bMath\.random\s*\(", text) and SECRET_NAME.search(ps.code):
-            yield node, ("Math.random() is used where a value looks security-relevant; "
-                         "it is predictable and not cryptographically secure")
+            yield (node, ("Math.random() is used where a value looks security-relevant; "
+                          "it is predictable and not cryptographically secure"),
+                   "CWE-338", "A02:2021 - Cryptographic Failures")
 
 
 def match_missing_auth_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:

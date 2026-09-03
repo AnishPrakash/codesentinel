@@ -141,8 +141,10 @@ def match_weak_crypto_java(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
         if re.search(r"(?i)^new Random$|\bRandom$", callee.strip()) or \
                 re.search(r"\bnew\s+Random\s*\(", text):
             if J_SECRET_NAME.search(_enclosing_method(ps, node)):
-                yield node, ("java.util.Random is used where a value looks "
-                             "security-relevant; use SecureRandom, which is not predictable")
+                yield (node, ("java.util.Random is used where a value looks "
+                              "security-relevant; use SecureRandom, which is not "
+                              "predictable"),
+                       "CWE-338", "A02:2021 - Cryptographic Failures")
 
 
 # --------------------------------------------------------- CS005 missing auth

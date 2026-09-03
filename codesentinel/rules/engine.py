@@ -66,12 +66,18 @@ def coverage_statement(language: Language | None = None) -> str:
     else:
         det, adv, scope = DETERMINISTIC, ADVISORY, ""
 
+    advisory_part = (
+        f" and {len(adv)} advisory heuristics "
+        f"({', '.join(n for _, n, _, _, _ in adv)}). "
+        "Advisories are hints, not findings."
+        if adv else
+        # "0 advisory heuristics ()" is how a coverage statement stops being read.
+        " and no advisory heuristics apply to it."
+    )
     return (
         f"Checked {len(det)} deterministic classes{scope} "
-        f"({', '.join(n for _, n, _, _, _ in det)}) "
-        f"and {len(adv)} advisory heuristics "
-        f"({', '.join(n for _, n, _, _, _ in adv)}). "
-        "Advisories are hints, not findings. This is not a security audit - "
+        f"({', '.join(n for _, n, _, _, _ in det)})"
+        f"{advisory_part} This is not a security audit - "
         "anything outside these classes was not examined."
     )
 

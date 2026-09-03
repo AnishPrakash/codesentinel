@@ -51,7 +51,12 @@ For the editor: [`vscode-extension/README.md`](vscode-extension/README.md).
 - **The detector cannot hallucinate.** Findings come from structural AST matches
   over a tree-sitter parse, so every alert cites the rule that fired and the
   standard it encodes — CWE, OWASP and, with `--nist`, the SP 800-53 control.
-  A probability is never allowed to become a claim.
+  A probability is never allowed to become a claim, and that includes the
+  interface: the model's score is never printed beside a finding.
+- **The citation matches the finding, not the rule.** One rule can cover several
+  weaknesses — `app.run(debug=True)`, a world-writable `chmod` and wildcard CORS
+  are all CS009 — so a matcher cites the CWE it actually matched (489, 732, 942)
+  rather than one default for all three.
 - **It refuses to auto-fix.** You get the fix once you can explain the problem.
 - **It says what it did not check.** Every result, including a clean one, prints
   the coverage statement. A green tick with no scope is a false sense of security.

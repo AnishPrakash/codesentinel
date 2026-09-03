@@ -92,7 +92,8 @@ def match_permissive_config_js(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
                 text):
             yield node, "Access-Control-Allow-Origin is set to *"
         elif re.search(r"\bfs\.chmod(Sync)?\s*\(", text) and re.search(r"0o?7[0-7]7", text):
-            yield node, "a file is made world-writable"
+            yield (node, "a file is made world-writable",
+                   "CWE-732", "A01:2021 - Broken Access Control")
 
 
 # =====================================================================

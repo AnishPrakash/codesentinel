@@ -100,11 +100,13 @@ def match_permissive_config_py(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
         if node.type == "call":
             callee = _callee(ps, node)
             if re.search(r"(?i)\bos\.chmod\b", callee) and re.search(r"0o?7[0-7]7", text):
-                yield node, "a file is made world-writable"
+                yield (node, "a file is made world-writable",
+                       "CWE-732", "A01:2021 - Broken Access Control")
             elif re.search(r"(?i)\bapp\.run\b", callee) and re.search(
                     r"debug\s*=\s*True", text):
-                yield node, ("the development server is started with debug=True, which "
-                             "exposes an interactive console that executes code")
+                yield (node, ("the development server is started with debug=True, which "
+                              "exposes an interactive console that executes code"),
+                       "CWE-489", "A05:2021 - Security Misconfiguration")
 
         if node.type in ("call", "assignment", "keyword_argument"):
             if re.search(r"""allow_origins\s*=\s*\[?\s*["']\*["']""", text):

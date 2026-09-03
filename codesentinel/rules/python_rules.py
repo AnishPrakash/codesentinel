@@ -119,7 +119,10 @@ def match_command_injection(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
                 yield node, ("subprocess is invoked with shell=True, so the argument is "
                              "parsed by a shell")
         elif re.fullmatch(r"\s*(eval|exec)\s*", callee):
-            yield node, f"{callee.strip()}() executes a constructed string as code"
+            # eval() runs code in this interpreter; it never reaches a shell.
+            # CWE-78 is about OS commands, so citing it here would be wrong.
+            yield (node, f"{callee.strip()}() executes a constructed string as code",
+                   "CWE-95", "A03:2021 - Injection")
 
 
 # ------------------------------------------------------------- CS004 weak crypto
@@ -148,9 +151,10 @@ def match_weak_crypto(ps: ParsedSource) -> Iterator[tuple[Node, str]]:
         elif re.search(r"(?i)\brandom\.(random|randint|choice|shuffle|randrange)\b", callee):
             enclosing = ps.text(enclosing_function(node) or node)
             if SECRET_NAME.search(enclosing):
-                yield node, ("the `random` module is used where a value looks "
-                             "security-relevant; it is predictable and not "
-                             "cryptographically secure")
+                yield (node, ("the `random` module is used where a value looks "
+                              "security-relevant; it is predictable and not "
+                              "cryptographically secure"),
+                       "CWE-338", "A02:2021 - Cryptographic Failures")
 
 
 # --------------------------------------------------------- CS005 missing auth

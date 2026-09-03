@@ -225,6 +225,23 @@ where they produced false positives:
 `test_codesentinel_is_clean_on_its_own_source` now runs the whole rule set over
 the whole package in CI. Dogfooding as a test rather than as a habit.
 
+A seventh and an eighth, both the same shape as the sixth and both found by
+reading a scan rather than by a test. **CS009 cited CWE-942 "Permissive
+Cross-domain Policy" for `app.run(debug=True)`**, and followed it with an attack
+paragraph about wildcard CORS. **CS003 cited CWE-78 "OS Command Injection" for
+`eval()`**, which never reaches a shell. Two more were the same: a world-writable
+`chmod` is CWE-732, and a predictable PRNG is CWE-338.
+
+The rule was carrying one CWE for several distinct weaknesses. The stated
+principle - *the Rule carries its own CWE so grounding cannot drift from
+detection* - is about detection and citation being decided together, not about
+there being exactly one citation per rule. So a matcher may now yield
+`(node, evidence, cwe, owasp)` and specialise its citation, because the matcher
+is the thing that knows which case it matched. The rule keeps its default for
+everything that does not specialise. A test asserts that every CWE a matcher can
+emit exists in `cwe.json`, since a precise citation with no description renders
+worse than the imprecise default it replaced.
+
 A sixth, found by reading the tool's own output rather than by a test: **CS004
 flagged `new Random()` and then explained MD5 collisions**, and offered a
 `MessageDigest` fix. A broken hash and a predictable generator are both

