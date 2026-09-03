@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 import { Finding } from './scanner';
 import { getSettings } from './utils/config';
 import { InlineKind, inlineLabels } from './utils/inline';
+import { logger } from './utils/logger';
 
 /**
  * Line highlights and end-of-line messages, kept visually distinct by tier.
@@ -80,6 +81,8 @@ export function refreshDecorations(): void {
   }
 }
 
+let lastInlineReason = '';
+
 /**
  * Should CodeSentinel draw its own end-of-line text?
  *
@@ -91,18 +94,36 @@ export function refreshDecorations(): void {
  */
 function inlineEnabled(): boolean {
   const mode = getSettings().inlineMessage;
+  let on: boolean;
+  let reason: string;
+
   if (mode === 'on') {
-    return true;
+    on = true;
+    reason = 'inlineMessage=on';
+  } else if (mode === 'off') {
+    on = false;
+    reason = 'inlineMessage=off';
+  } else {
+    const lens = vscode.extensions.getExtension('usernamehw.errorlens');
+    if (!lens) {
+      on = true;
+      reason = 'auto: Error Lens not installed or disabled';
+    } else {
+      const lensOn = vscode.workspace.getConfiguration('errorLens').get<boolean>('enabled', true);
+      on = !lensOn;
+      reason = lensOn
+        ? 'auto: Error Lens is enabled, standing down (set codesentinel.inlineMessage to "on" to override)'
+        : 'auto: Error Lens installed but errorLens.enabled is false';
+    }
   }
-  if (mode === 'off') {
-    return false;
+
+  // "auto" makes a decision the user cannot see. Say what it decided, once per
+  // change - a silent mode that picks wrong is indistinguishable from a bug.
+  if (reason !== lastInlineReason) {
+    lastInlineReason = reason;
+    logger.info(`inline messages ${on ? 'on' : 'off'} - ${reason}`);
   }
-  const lens = vscode.extensions.getExtension('usernamehw.errorlens');
-  if (!lens) {
-    return true; // not installed, or installed but disabled by the user
-  }
-  const lensOn = vscode.workspace.getConfiguration('errorLens').get<boolean>('enabled', true);
-  return !lensOn;
+  return on;
 }
 
 function inlineOptions(
