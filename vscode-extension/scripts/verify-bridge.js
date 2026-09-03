@@ -62,6 +62,13 @@ child.on('error', (err) => {
 });
 
 child.on('close', (code) => {
+  // Check stderr FIRST. A Python traceback exits 1, and so does a scan that
+  // found something - the exit code cannot tell them apart, which is exactly
+  // how a missing dependency once looked like "no JSON object in stdout".
+  if (/Traceback|No module named|ImportError/i.test(stderr)) {
+    fail('the CLI crashed instead of scanning:\n' + stderr.trim());
+    process.exit(1);
+  }
   if (code !== 0 && code !== 1) {
     fail(`exit code ${code}\n${stderr}`);
     process.exit(1);
@@ -71,7 +78,7 @@ child.on('close', (code) => {
   const start = stdout.indexOf('{');
   const end = stdout.lastIndexOf('}');
   if (start === -1 || end === -1) {
-    fail('no JSON object in stdout');
+    fail('no JSON object in stdout. stderr was:\n' + (stderr.trim() || '(empty)'));
     process.exit(1);
   }
 

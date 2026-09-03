@@ -17,6 +17,3 @@ report.md
 vscode-extension/node_modules/
 vscode-extension/out/
 vscode-extension/*.vsix
-
-# transfer artefacts
-*.tar.gz

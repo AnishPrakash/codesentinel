@@ -1,0 +1,13 @@
+# Line endings.
+#
+# scripts/pre-commit is executed by bash. If git checks it out with CRLF on a
+# Windows machine, bash fails with an unreadable "\r: command not found" and the
+# hook silently stops guarding commits. Pin it, and everything else bash runs.
+* text=auto eol=lf
+
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+*.png   binary
+*.onnx  binary
+*.vsix  binary

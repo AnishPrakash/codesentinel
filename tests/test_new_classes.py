@@ -127,8 +127,16 @@ def test_cs001_catches_a_commented_out_credential():
 
 
 def test_cs001_catches_a_google_api_key():
-    code = 'KEY = "AIzaSyD-1234567890abcdefghijklmnopqrstu"\n'   # 39 chars
-    assert "CS001" in ids(code)
+    """The key is assembled at runtime, never written as one literal.
+
+    A 39-character AIza... string sitting in a source file is what Google's
+    format looks like, so GitHub's secret scanner flags it on push - correctly,
+    since it cannot know ours is invented. Building it from parts keeps the
+    test honest and keeps the repository quiet. Do not "tidy" this back into a
+    single string: it opened a secret-scanning alert once already."""
+    fake = "AIza" + "SyD-" + "0123456789" + "abcdefghij" + "klmnopqrstu"
+    assert len(fake) == 39
+    assert "CS001" in ids(f'KEY = "{fake}"\n')
 
 
 def test_cs004_catches_a_weak_cipher():

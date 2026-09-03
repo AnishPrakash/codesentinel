@@ -99,17 +99,34 @@ function runCli(args: string[]): Promise<string> {
       }
       settled = true;
       clearTimeout(timer);
-      // Exit code 1 means findings were reported at or above the threshold.
-      // That is a successful scan, not a failure.
-      if (code === 0 || code === 1) {
+      // A missing module also exits 1, so check this BEFORE trusting the code.
+      if (/No module named/i.test(stderr)) {
+        const missing = /No module named '([^']+)'/.exec(stderr)?.[1];
+        reject(
+          new ScannerUnavailableError(
+            missing && missing !== 'codesentinel'
+              ? `CodeSentinel is installed but its dependency "${missing}" is not. ` +
+                  'Run `pip install -r requirements.txt` in the repo.'
+              : 'CodeSentinel is not installed in the selected interpreter. ' +
+                  'Run `pip install -e .` in the repo, then set codesentinel.pythonPath.'
+          )
+        );
+        return;
+      }
+
+      // Exit code 1 means findings were reported at or above the threshold -
+      // a successful scan, not a failure. But a Python traceback ALSO exits 1
+      // with empty stdout, so the exit code alone cannot tell them apart.
+      // Whether stdout carries a JSON body is what actually distinguishes them.
+      if (code === 0 || (code === 1 && stdout.includes('{'))) {
         resolve(stdout);
         return;
       }
-      if (/No module named/i.test(stderr)) {
+      if (code === 1) {
         reject(
-          new ScannerUnavailableError(
-            'CodeSentinel is not installed in the selected interpreter. ' +
-              'Run `pip install -e .` in the repo, then set codesentinel.pythonPath.'
+          new Error(
+            'CodeSentinel exited without producing a report. ' +
+              (stderr.trim().split('\n').pop() || 'No error output.')
           )
         );
         return;
