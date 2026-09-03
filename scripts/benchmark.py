@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import statistics
+import tempfile
 import time
 from pathlib import Path
 
@@ -38,7 +39,12 @@ if __name__ == "__main__":
     for p in (sorted(demo.glob("*.py")) + sorted(demo.glob("*.js"))
               + sorted(demo.glob("*.java"))):
         bench(p)
+    # tempfile, not "/tmp": on Windows a hardcoded POSIX path resolves to
+    # \tmp\ on the current drive, which does not exist.
     big_src = (demo / "invoices.py").read_text(encoding="utf-8")
-    big = Path("/tmp/cs_big.py")
+    big = Path(tempfile.gettempdir()) / "cs_big.py"
     big.write_text(big_src * 40, encoding="utf-8")
-    bench(big, n=50)
+    try:
+        bench(big, n=50)
+    finally:
+        big.unlink(missing_ok=True)

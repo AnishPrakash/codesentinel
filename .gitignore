@@ -17,3 +17,6 @@ report.md
 vscode-extension/node_modules/
 vscode-extension/out/
 vscode-extension/*.vsix
+
+# Per-developer interpreter path - see settings.json.example
+vscode-extension/.vscode/settings.json

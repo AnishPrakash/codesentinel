@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import dataclasses
 import json
+import re
 from functools import lru_cache
 
 from ..config import DATA_DIR, get_settings
@@ -420,6 +421,78 @@ TEMPLATES.update({
 })
 
 
+# ---------------------------------------------------------------- variants
+#
+# One rule id can cover more than one distinct problem. CS004 is the clear case:
+# a broken hash and a predictable random number generator are both "unsuitable
+# cryptography", but the reason, the attack and the fix share nothing. A single
+# template made the tool flag `new Random()` and then explain MD5 collisions -
+# a contradiction that costs more credibility than the finding earns.
+#
+# A variant is selected by matching the matcher's own evidence string, and its
+# keys override the base template. Everything unmatched falls through, so a
+# variant only has to state what actually differs.
+
+VARIANTS: dict[str, list[tuple[re.Pattern[str], dict[str, str]]]] = {
+    "CS004": [
+        (re.compile(r"(?i)random|predictable|securerandom"), {
+            "why": (
+                "A general-purpose random number generator is built to be fast and "
+                "statistically even, not unguessable. It is a formula seeded with "
+                "something like the clock, so anyone who learns the seed - or "
+                "collects enough output to solve for it - can reproduce every value "
+                "it has produced and every value it will produce next."
+            ),
+            "attack": (
+                "Given a handful of tokens from the same generator, an attacker "
+                "recovers the internal state and then predicts the next one. That is "
+                "a password-reset link for an account that is not theirs, or a "
+                "session id belonging to someone else - guessed, not stolen, and "
+                "leaving nothing unusual in your logs."
+            ),
+            "fix_python": (
+                "# secrets is the standard library's CSPRNG - use it for anything\n"
+                "# a person must not be able to guess\n"
+                "import secrets\n\n"
+                "token = secrets.token_urlsafe(32)      # reset links, API keys\n"
+                "otp = secrets.randbelow(1_000_000)     # one-time codes\n"
+                "pick = secrets.choice(candidates)      # unbiased choice\n\n"
+                "# random.* stays fine for simulations, sampling and test data -\n"
+                "# anywhere the value is not a secret."
+            ),
+            "fix_javascript": (
+                "// Node\n"
+                "const crypto = require('node:crypto');\n"
+                "const token = crypto.randomBytes(32).toString('base64url');\n"
+                "const n = crypto.randomInt(0, 1_000_000);\n\n"
+                "// Browser\n"
+                "const buf = new Uint8Array(32);\n"
+                "crypto.getRandomValues(buf);\n\n"
+                "// Math.random() is not seeded securely in any engine. It is for\n"
+                "// animation and sampling, never for a token."
+            ),
+            "fix_java": (
+                "// SecureRandom is seeded from the OS entropy pool\n"
+                "SecureRandom rng = new SecureRandom();\n\n"
+                "byte[] raw = new byte[32];\n"
+                "rng.nextBytes(raw);\n"
+                "String token = Base64.getUrlEncoder().withoutPadding()"
+                ".encodeToString(raw);\n\n"
+                "// java.util.Random is a linear congruential generator: recover the\n"
+                "// 48-bit seed from two consecutive outputs and the sequence is yours."
+            ),
+        }),
+    ],
+}
+
+
+def _apply_variant(rule_id: str, evidence: str, tpl: dict[str, str]) -> dict[str, str]:
+    for pattern, override in VARIANTS.get(rule_id, []):
+        if pattern.search(evidence):
+            return {**tpl, **override}
+    return tpl
+
+
 def explain(finding: Finding) -> Finding:
     """Attach explanation, attack and fix. Returns a new Finding (they are frozen)."""
     tpl = TEMPLATES.get(finding.rule_id)
@@ -427,6 +500,7 @@ def explain(finding: Finding) -> Finding:
         return finding
 
     evidence = finding.explanation.rstrip().rstrip(".")   # matcher's evidence string
+    tpl = _apply_variant(finding.rule_id, evidence, tpl)
     what = f"On line {finding.line}, {evidence}."
 
     if finding.language is Language.PYTHON:

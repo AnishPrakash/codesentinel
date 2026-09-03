@@ -145,3 +145,15 @@ def test_our_own_imports_survive_a_manifest_rebuild():
         "these imports would vanish from the manifest on a rebuild; add them to "
         f"IMPORT_TO_DISTRIBUTION in codesentinel/deps/aliases.py: {sorted(unseeded)}"
     )
+
+
+def test_no_hardcoded_posix_temp_paths():
+    """`/tmp/...` written as a literal resolves to \\tmp\\ on the current drive
+    on Windows and raises FileNotFoundError. benchmark.py did exactly that."""
+    import re as _re
+    offenders = []
+    for path in list(PKG.rglob("*.py")) + list((ROOT / "scripts").rglob("*.py")):
+        for i, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            if _re.search(r'["\']/tmp/', line) and "example" not in line.lower():
+                offenders.append(f"{path.name}:{i}")
+    assert offenders == [], f"hardcoded POSIX temp paths: {offenders}"

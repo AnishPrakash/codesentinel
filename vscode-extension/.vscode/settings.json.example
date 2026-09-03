@@ -1,0 +1,12 @@
+{
+  // Copy this file to settings.json and set the path to the interpreter that
+  // has CodeSentinel installed. `settings.json` itself is gitignored, because
+  // this path is different on every machine.
+  //
+  //   conda activate code_env
+  //   python -c "import sys; print(sys.executable)"
+  //
+  // Windows: "C:\\Users\\you\\miniconda3\\envs\\code_env\\python.exe"
+  // macOS / Linux: "/home/you/miniconda3/envs/code_env/bin/python"
+  "codesentinel.pythonPath": "python"
+}

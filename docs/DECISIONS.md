@@ -225,6 +225,17 @@ where they produced false positives:
 `test_codesentinel_is_clean_on_its_own_source` now runs the whole rule set over
 the whole package in CI. Dogfooding as a test rather than as a habit.
 
+A sixth, found by reading the tool's own output rather than by a test: **CS004
+flagged `new Random()` and then explained MD5 collisions**, and offered a
+`MessageDigest` fix. A broken hash and a predictable generator are both
+"unsuitable cryptography" and share CWE-327, but the reason, the attack and the
+remedy have nothing in common. One rule id was carrying two problems and one
+template. `TEMPLATES` now supports variants selected by the matcher's own
+evidence string, so the randomness finding gets the randomness explanation and
+the `secrets` / `SecureRandom` / `crypto.randomBytes` fix. An explanation that
+contradicts its own finding costs more credibility than the finding earns -
+which is the whole argument for grounding explanations in the first place.
+
 A fifth, found later and worse than the other four: **CS006 flagged `import
 yaml`**. A manifest lists what a registry publishes (`pyyaml`); code writes what
 it imports (`yaml`). Hyphen and underscore normalisation bridges
