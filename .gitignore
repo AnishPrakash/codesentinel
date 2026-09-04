@@ -36,3 +36,4 @@ CVEfixes-1.0.8/
 CVEfixes*.zip
 CVEfixes_v*.zip
 *.sql.gz
+demo.md

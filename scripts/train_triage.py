@@ -53,10 +53,14 @@ class TriageNet(nn.Module):
     anything deeper, and a model that has to ship inside a pip package and run
     on a laptop CPU in single-digit milliseconds has a budget."""
 
-    def __init__(self, n_features: int, n_classes: int, hidden: int = 128):
+    def __init__(self, n_features: int, n_classes: int, hidden: int = 256):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(n_features, hidden),
+            nn.BatchNorm1d(hidden),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(hidden, hidden),
             nn.BatchNorm1d(hidden),
             nn.ReLU(),
             nn.Dropout(0.3),
@@ -113,7 +117,7 @@ def scale(X, mins, maxs):
     return np.clip((X - mins) / span, 0.0, 1.0).astype(np.float32)
 
 
-def train(Xtr, ytr, Xva, yva, epochs=200, patience=25, lr=2e-3):
+def train(Xtr, ytr, Xva, yva, epochs=300, patience=50, lr=1e-3):
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
@@ -126,6 +130,7 @@ def train(Xtr, ytr, Xva, yva, epochs=200, patience=25, lr=2e-3):
         dtype=torch.float32).clamp(max=50.0)
     criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
     opt = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode='max', factor=0.5, patience=10)
 
     Xtr_t = torch.from_numpy(Xtr)
     ytr_t = torch.from_numpy(ytr)
@@ -164,6 +169,9 @@ def train(Xtr, ytr, Xva, yva, epochs=200, patience=25, lr=2e-3):
             if since >= patience:
                 print(f"  early stop at epoch {epoch}")
                 break
+        
+        scheduler.step(score)
+
         if epoch % 20 == 0:
             print(f"  epoch {epoch:3d}  val mAP {score:.3f}  (best {best_score:.3f})")
 
