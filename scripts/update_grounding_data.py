@@ -1,7 +1,6 @@
 import json
 import time
 import os
-import sys
 
 # Path to the local JSON database that the scanner reads
 CWE_FILE = os.path.join(os.path.dirname(__file__), "..", "codesentinel", "data", "grounding", "cwe.json")
@@ -47,7 +46,7 @@ def main():
     time.sleep(1)
     
     # 3. Compile static asset
-    print(f"\n[*] [Build Process] Compiling updated static JSON asset...")
+    print("\n[*] [Build Process] Compiling updated static JSON asset...")
     with open(CWE_FILE, "w", encoding="utf-8") as f:
         json.dump(cwe_db, f, indent=2)
         
